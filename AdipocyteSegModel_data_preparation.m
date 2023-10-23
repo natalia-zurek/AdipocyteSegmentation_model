@@ -1,0 +1,109 @@
+% ======== DATASET PREPARATION ========
+img_pth = "E:\WSIs\Massons trichrome stain\Set-1\HE-20x\";
+xml_pth = "E:\WSIs\Massons trichrome stain\Set-1\HE-20x\";
+%%
+output_path = 'C:\Projects\Adipocyte segmentation model\images';
+mkdir(output_path);
+img = dir(fullfile(img_pth, '*.svs'));
+
+for i = 1:size(img, 1)
+    img_pth_full = fullfile(img(i).folder, img(i).name);
+    [~,name,~] = fileparts(img_pth_full);
+    xml_pth_full = fullfile(xml_pth, [name '.xml']);
+
+    he = CutRoIsFromFile(img_pth_full, xml_pth_full);
+    save_images_from_cell(he, output_path, name)
+end
+
+%%
+% RGB images that serve as input to the network, specified as H-by-W-by-3 numeric arrays.
+% Bounding boxes for objects in the RGB images, specified as NumObjects-by-4 matrices, with rows in the format [x y w h]).
+% 
+% Instance labels, specified as NumObjects-by-1 string vectors.
+% 
+% Instance masks. Each mask is the segmentation of one instance in the image. 
+% The COCO data set specifies object instances using polygon coordinates formatted as NumObjects-by-2 cell arrays. 
+% Each row of the array contains the (x,y) coordinates of a polygon along the boundary of one instance in the image. 
+% However, the Mask R-CNN in this example requires binary masks specified as logical arrays of size H-by-W-by-NumObjects.
+
+%load masks
+%bwconn
+%get bboxes
+%instance labels (1)
+
+images_path = 'C:\Projects\Adipocyte segmentation model\dataset\train';
+output_path = 'C:\Projects\Adipocyte segmentation model\dataset\final';
+mask_path = 'C:\Projects\Adipocyte segmentation model\dataset\adipocyte masks';
+mkdir(output_path);
+
+files = [dir(fullfile(images_path, '*.tif')); dir(fullfile(images_path, '*.jpg')); dir(fullfile(images_path, '*.png'))];
+%%
+j = 1;
+for i = 269:271%1:size(files, 1)
+    file_path = fullfile(files(i).folder, files(i).name);
+    [~,name,~] = fileparts(file_path);
+    
+    mask_path_full = fullfile(mask_path, [name '.png']);
+    if ~isfile(mask_path_full)
+        disp(['Mask ' name '.png doesnt exist'])
+        continue
+    end
+
+    img = imread(file_path);
+    mask = imread(mask_path_full);
+
+    % prepare data
+    bw_mask = bwlabel(mask);
+    props = regionprops("struct",bw_mask, 'BoundingBox');
+    bboxes = cat(1, props.BoundingBox);
+    N=size(bboxes,1);
+    Boxes{j,1}=bboxes;
+    Labels{j, 1} = repmat({'Adipocyte'}, N,1);
+
+    j = j+1;
+end
+
+T=table(Boxes,Labels);
+
+%%
+imds = imageDatastore(images_path, "FileExtensions",[".jpg",".tif", ".png"]);
+blds = boxLabelDatastore(T);
+mskds = imageDatastore(mask_path);
+mskds.ReadFcn = @read_instance_masks;
+
+%%  ========= FUNCTIONS ========== 
+
+
+function save_images_from_cell(img_cell, output_path, name)
+
+for i = 1:length(img_cell)
+    imwrite(img_cell{i}, fullfile(output_path, [name '_' num2str(i) '.tif']))
+end
+
+end
+
+function instance_masks = read_instance_masks(filename)
+
+mask = imread(filename);
+bw_mask = bwlabel(mask);
+instance_masks = get_instance_masks(bw_mask);
+
+end
+
+function instance_masks = get_instance_masks(mask)
+
+inst_id = unique(mask);
+inst_id(inst_id == 0) = [];
+
+num_inst = size(inst_id, 1);
+instance_masks = cell(num_inst,1);
+
+for i = 1:num_inst
+
+    instance_mask = zeros(size(mask));
+    instance_mask(mask == inst_id(i)) = 1;
+
+    instance_masks{i} = instance_mask;
+end
+
+end
