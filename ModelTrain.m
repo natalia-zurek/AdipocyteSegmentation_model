@@ -1,5 +1,14 @@
 % ======= MODEL TRAINING ========
+%% UNPACK DATASTORE
+datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\final_data';
+images_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\images';
 
+ds = fileDatastore(datastore_path, ...
+    ReadFcn=@(x)datasetReader(x,images_path));
+
+data = preview(ds)
+
+%%
 options = trainingOptions("sgdm", ...
     InitialLearnRate=0.001, ...
     LearnRateSchedule="piecewise", ...
@@ -14,7 +23,7 @@ options = trainingOptions("sgdm", ...
     ExecutionEnvironment="gpu", ...
     VerboseFrequency=50);
 
-trainClassNames = 'Adipocyte';
+trainClassNames = ["Adipocyte"];
 imageSizeTrain = [800 800 3];
 net = maskrcnn("resnet50-coco",trainClassNames,InputSize=imageSizeTrain);
 %%
@@ -22,7 +31,5 @@ doTraining = true;
 if doTraining
     [net,info] = trainMaskRCNN(ds,net,options,FreezeSubNetwork="backbone");
     modelDateTime = string(datetime("now",Format="yyyy-MM-dd-HH-mm-ss"));
-    save("trainedMaskRCNN-"+modelDateTime+".mat","net");
+    save("AdipocytetrainedMaskRCNN-"+modelDateTime+".mat","net");
 end
-%%
-instance_mask = get_instance_masks(bw_mask);

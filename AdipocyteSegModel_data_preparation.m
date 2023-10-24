@@ -37,17 +37,18 @@ end
 
 images_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\images';
 out_folder = 'C:\Ovarian cancer project\Adipocyte dataset\train\deleted images';
-output_path = 'C:\Projects\Adipocyte segmentation model\dataset\final';
+output_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\final_data';
 mask_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\masks';
 mkdir(output_path);
 
 files = [dir(fullfile(images_path, '*.tif')); dir(fullfile(images_path, '*.jpg')); dir(fullfile(images_path, '*.png'))];
 %%
-j = 1;
+addpath(genpath('c:/Ovarian cancer project/AdipocyteSegmentation_model'));
 
 for i = 1:size(files, 1)
     file_path = fullfile(files(i).folder, files(i).name);
-    [~,name,~] = fileparts(file_path);
+    [~,name,ext] = fileparts(file_path);
+    imageName = [name ext];
     
     mask_path_full = fullfile(mask_path, [name '.png']);
     if ~isfile(mask_path_full)
@@ -62,22 +63,24 @@ for i = 1:size(files, 1)
     % prepare data
     bw_mask = bwlabel(mask);
     props = regionprops("struct",bw_mask, 'BoundingBox');
-    bboxes = cat(1, props.BoundingBox);
-    N=size(bboxes,1);
-    Boxes{j,1}=bboxes;
-    Labels{j, 1} = repmat({'Adipocyte'}, N,1);
+    bbox = cat(1, props.BoundingBox);
+    N=size(bbox,1);
+    label = categorical(repmat({'Adipocyte'}, N,1));
+    masks = get_instance_masks(bw_mask);
 
-    j = j+1;
+    save(fullfile(output_path, [name '.mat']),'imageName', "bbox", 'masks', 'label')
+
 end
 
-T=table(Boxes,Labels);
+
 
 %%
-imds = imageDatastore(images_path, "FileExtensions",[".jpg",".tif", ".png"]);
-blds = boxLabelDatastore(T);
-mskds = imageDatastore(mask_path);
-mskds.ReadFcn = @read_instance_masks;
-ds = combine(imds, blds, mskds);
+% imds = imageDatastore(images_path, "FileExtensions",[".jpg",".tif", ".png"]);
+% imds.ReadFcn = @read_image;
+% blds = boxLabelDatastore(T);
+% mskds = imageDatastore(mask_path);
+% mskds.ReadFcn = @read_instance_masks;
+% ds = combine(imds, blds, mskds);
 
 
 
