@@ -31,21 +31,28 @@ end
 %get bboxes
 %instance labels (1)
 
-images_path = 'C:\Projects\Adipocyte segmentation model\dataset\train';
+% images_path = 'C:\Projects\Adipocyte segmentation model\dataset\train';
+% output_path = 'C:\Projects\Adipocyte segmentation model\dataset\final';
+% mask_path = 'C:\Projects\Adipocyte segmentation model\dataset\adipocyte masks';
+
+images_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\images';
+out_folder = 'C:\Ovarian cancer project\Adipocyte dataset\train\deleted images';
 output_path = 'C:\Projects\Adipocyte segmentation model\dataset\final';
-mask_path = 'C:\Projects\Adipocyte segmentation model\dataset\adipocyte masks';
+mask_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\masks';
 mkdir(output_path);
 
 files = [dir(fullfile(images_path, '*.tif')); dir(fullfile(images_path, '*.jpg')); dir(fullfile(images_path, '*.png'))];
 %%
 j = 1;
-for i = 269:271%1:size(files, 1)
+
+for i = 1:size(files, 1)
     file_path = fullfile(files(i).folder, files(i).name);
     [~,name,~] = fileparts(file_path);
     
     mask_path_full = fullfile(mask_path, [name '.png']);
     if ~isfile(mask_path_full)
         disp(['Mask ' name '.png doesnt exist'])
+        status = movefile(file_path, out_folder);
         continue
     end
 
@@ -70,40 +77,7 @@ imds = imageDatastore(images_path, "FileExtensions",[".jpg",".tif", ".png"]);
 blds = boxLabelDatastore(T);
 mskds = imageDatastore(mask_path);
 mskds.ReadFcn = @read_instance_masks;
+ds = combine(imds, blds, mskds);
 
-%%  ========= FUNCTIONS ========== 
 
 
-function save_images_from_cell(img_cell, output_path, name)
-
-for i = 1:length(img_cell)
-    imwrite(img_cell{i}, fullfile(output_path, [name '_' num2str(i) '.tif']))
-end
-
-end
-
-function instance_masks = read_instance_masks(filename)
-
-mask = imread(filename);
-bw_mask = bwlabel(mask);
-instance_masks = get_instance_masks(bw_mask);
-
-end
-
-function instance_masks = get_instance_masks(mask)
-
-inst_id = unique(mask);
-inst_id(inst_id == 0) = [];
-
-num_inst = size(inst_id, 1);
-instance_masks = cell(num_inst,1);
-
-for i = 1:num_inst
-
-    instance_mask = zeros(size(mask));
-    instance_mask(mask == inst_id(i)) = 1;
-
-    instance_masks{i} = instance_mask;
-end
-
-end
