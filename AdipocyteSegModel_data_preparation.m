@@ -37,7 +37,7 @@ end
 
 images_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\images';
 out_folder = 'C:\Ovarian cancer project\Adipocyte dataset\train\deleted images';
-output_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\final_data';
+output_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\final_data_v2';
 mask_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\masks';
 mkdir(output_path);
 
