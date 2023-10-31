@@ -2,9 +2,9 @@
 
 %load model
 %load();
-image_path = 'C:\Ovarian cancer project\omental images\tiles fat wsi 2048\12019';%C:\Ovarian cancer project\Adipocyte dataset\images MTD\';
-
-output_path = 'C:\Ovarian cancer project\Adipocyte dataset\images MTD\inference_test_model3_1024';
+% image_path = 'C:\Ovarian cancer project\omental images\tiles fat wsi 2048\12019';%C:\Ovarian cancer project\Adipocyte dataset\images MTD\';
+image_path = 'C:\Ovarian cancer project\Adipocyte dataset\images MTD\';
+output_path = 'C:\Ovarian cancer project\Adipocyte dataset\images MTD\inference_test_model5_1024_aug';
 mkdir(output_path);
 files = [dir(fullfile(image_path, '*.tif')); dir(fullfile(image_path, '*.png')); dir(fullfile(image_path, '*.jpg'))];
 

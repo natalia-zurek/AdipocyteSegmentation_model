@@ -1,11 +1,11 @@
 % Model to mask
 
-folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\images MTD\inference_test_model3_1024';
-output_path = 'C:\Ovarian cancer project\Adipocyte dataset\images MTD\inference_test_model3_1024\geojson';
+folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\images MTD\inference_test_model5_1024_aug';
+output_path = 'C:\Ovarian cancer project\Adipocyte dataset\images MTD\inference_test_model5_1024_aug\geojson';
 
 mkdir(output_path);
 files = dir(fullfile(folder_path, '*.mat'));
-for i = 21:size(files, 1)
+for i = 20:size(files, 1)
     file_path = fullfile(files(i).folder, files(i).name);
     [~,name,~] = fileparts(file_path);
 

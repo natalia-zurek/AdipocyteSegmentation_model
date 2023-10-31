@@ -1,13 +1,17 @@
 % ======= MODEL TRAINING ========
 %% UNPACK DATASTORE
 datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\final_data_v2';
-images_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\images';
+images_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\images_all';
 
 ds = fileDatastore(datastore_path, ...
     ReadFcn=@(x)datasetReader(x,images_path));
 
-data = preview(ds)
-
+rng(1);
+num_files_in_sub = 200;
+end_idx = size(ds.Files, 1);
+random_indices = randperm(end_idx, num_files_in_sub);
+subds = subset(ds,random_indices);
+file_list = subds.Files;
 %%
 options = trainingOptions("sgdm", ...
     InitialLearnRate=0.001, ...
@@ -29,7 +33,9 @@ net = maskrcnn("resnet50-coco",trainClassNames,InputSize=imageSizeTrain);
 %%
 doTraining = true;
 if doTraining
-    [net,info] = trainMaskRCNN(ds,net,options,FreezeSubNetwork="backbone");
+    tic
+    [net,info] = trainMaskRCNN(subds,net,options,FreezeSubNetwork="backbone");
     modelDateTime = string(datetime("now",Format="yyyy-MM-dd-HH-mm-ss"));
-    save("AdipocytetrainedMaskRCNN-"+modelDateTime+".mat","net", "info");
+    save("AdipocytetrainedMaskRCNN-"+modelDateTime+"_withcoloraug.mat","net", "info", 'file_list');
+    t = toc / 60;
 end
