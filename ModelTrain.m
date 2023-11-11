@@ -7,7 +7,7 @@ ds = fileDatastore(datastore_path, ...
     ReadFcn=@(x)datasetReader(x,images_path));
 
 rng(1);
-num_files_in_sub = 200;
+num_files_in_sub = 1500;
 end_idx = size(ds.Files, 1);
 random_indices = randperm(end_idx, num_files_in_sub);
 subds = subset(ds,random_indices);
@@ -36,6 +36,6 @@ if doTraining
     tic
     [net,info] = trainMaskRCNN(subds,net,options,FreezeSubNetwork="backbone");
     modelDateTime = string(datetime("now",Format="yyyy-MM-dd-HH-mm-ss"));
-    save("AdipocytetrainedMaskRCNN-"+modelDateTime+"_withcoloraug.mat","net", "info", 'file_list');
+    save("AdipocytetrainedMaskRCNN-"+modelDateTime+"_withcolorFRBaug.mat","net", "info", 'file_list');
     t = toc / 60;
 end

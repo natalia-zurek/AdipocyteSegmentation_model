@@ -1,4 +1,4 @@
-function instance_masks = get_instance_masks(mask)
+function instance_masks = instancemask2maskstack(mask)
 
 inst_id = unique(mask);
 inst_id(inst_id == 0) = [];

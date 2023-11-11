@@ -66,7 +66,7 @@ for i = 1:size(files, 1)
     bbox = cat(1, props.BoundingBox);
     N=size(bbox,1);
     label = categorical(repmat({'Adipocyte'}, N,1));
-    masks = get_instance_masks(bw_mask);
+    masks = instancemask2maskstack(bw_mask);
 
     save(fullfile(output_path, [name '.mat']),'imageName', "bbox", 'masks', 'label')
 
