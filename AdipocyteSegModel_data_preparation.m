@@ -35,15 +35,18 @@ end
 % output_path = 'C:\Projects\Adipocyte segmentation model\dataset\final';
 % mask_path = 'C:\Projects\Adipocyte segmentation model\dataset\adipocyte masks';
 
-images_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\images';
+images_path = 'C:\Ovarian cancer project\Adipocyte dataset\images MTD';
 out_folder = 'C:\Ovarian cancer project\Adipocyte dataset\train\deleted images';
-output_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\final_data_v2';
+output_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\final_data_MTD';
 mask_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\masks';
 mkdir(output_path);
 
 files = [dir(fullfile(images_path, '*.tif')); dir(fullfile(images_path, '*.jpg')); dir(fullfile(images_path, '*.png'))];
 %%
 addpath(genpath('c:/Ovarian cancer project/AdipocyteSegmentation_model'));
+
+save_overlay = 1;
+save_dataset = 1;
 
 for i = 1:size(files, 1)
     file_path = fullfile(files(i).folder, files(i).name);
@@ -62,6 +65,12 @@ for i = 1:size(files, 1)
 
     % prepare data
     bw_mask = bwlabel(mask);
+    if save_overlay
+    ov = labeloverlay(img, bw_mask);
+    imwrite(ov, fullfile(output_path, [name '.png']))
+    end
+
+    if save_dataset
     props = regionprops("struct",bw_mask, 'BoundingBox');
     bbox = cat(1, props.BoundingBox);
     N=size(bbox,1);
@@ -69,9 +78,9 @@ for i = 1:size(files, 1)
     masks = instancemask2maskstack(bw_mask);
 
     save(fullfile(output_path, [name '.mat']),'imageName', "bbox", 'masks', 'label')
+    end
 
 end
-
 
 
 %%

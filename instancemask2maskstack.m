@@ -3,6 +3,10 @@ function instance_masks = instancemask2maskstack(mask)
 inst_id = unique(mask);
 inst_id(inst_id == 0) = [];
 
+if isempty(inst_id)
+instance_masks = mask;
+else
+
 num_inst = size(inst_id, 1);
 %instance_masks = cell(num_inst,1);
 
@@ -17,6 +21,7 @@ for i = 2:num_inst
     %instance_mask = imresize(instance_mask, [800, 800], 'nearest');
 
     instance_masks = cat(3, instance_masks, instance_mask);
+end
 end
 
 end
