@@ -18,6 +18,7 @@ from transformers import Mask2FormerForUniversalSegmentation
 from tqdm.auto import tqdm
 import os
 import scipy.io as sio
+from matplotlib import pyplot as plt
 #%% 
 
 # CUSTOM DATASET CLASS
@@ -45,7 +46,11 @@ class ImageSegmentationDataset(Dataset):
         image = np.array(Image.open(image_path).convert('RGB'), dtype=np.float32)
         
         instance_map = sio.loadmat(annotation_path)["inst_map"]
-        mapping = sio.loadmat(annotation_path)["class_map"]
+        unique_ids = np.unique(instance_map)
+
+        # Creating a dictionary where each object has a class value of 1
+        mapping = {obj_id: 1 for obj_id in unique_ids if obj_id != 0}
+        #mapping = sio.loadmat(annotation_path)["class_map"]
 
         # apply transforms
         if self.transform is not None:
@@ -96,7 +101,13 @@ train_transform = A.Compose([
     
 #%%
 #size = (1024, 1024),
-train_transform = None
+ADE_MEAN = np.array([123.675, 116.280, 103.530]) / 255
+ADE_STD = np.array([58.395, 57.120, 57.375]) / 255
+
+train_transform = A.Compose([
+    A.Resize(width=512, height=512),
+    A.Normalize(mean=ADE_MEAN, std=ADE_STD),
+])
 processor = Mask2FormerImageProcessor(reduce_labels=True, ignore_index=0, do_resize=False, do_rescale=False, do_normalize=False)
 train_dataset = ImageSegmentationDataset('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset', processor, train_transform)
 
@@ -128,7 +139,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=5e-5)
 
 running_loss = 0.0
 num_samples = 0
-num_epochs = 2
+num_epochs = 10
 
 
 for epoch in range(num_epochs):
@@ -139,7 +150,7 @@ for epoch in range(num_epochs):
           continue
 
       # Reset the parameter gradients
-      optimizer.zero_grad()
+      optimizer.zero_grad(set_to_none=True)
 
       # Forward pass
       outputs = model(
@@ -163,22 +174,90 @@ for epoch in range(num_epochs):
       optimizer.step()
 
   if (epoch + 1) % 5 == 0 or epoch == (num_epochs - 1):
-    checkpoint_path = f'C:/Ovarian cancer project/trained models/mask2former_adipocyte_test_epoch_{epoch+1}.pt'
+    checkpoint_path = f'C:/Ovarian cancer project/trained models/model12282023/mask2former_adipocyte_test_epoch_{epoch+1}.pt'
     torch.save(model.state_dict(), checkpoint_path)
     print(f"Model saved to {checkpoint_path}")
 
-#%%
+#%% MODEL INFERENCE
+from transformers import Mask2FormerImageProcessor
 
+processor = Mask2FormerImageProcessor()
+
+testDir = os.listdir('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/images')
+sampleImage = Image.open(os.path.join('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/images' ,testDir[0])).convert('RGB')
+# sampleImage = Image.open(').convert('RGB')
+sampleImage
+#%%
+# prepare image for the model
+inputs = processor(sampleImage, return_tensors="pt").to(device)
+for k,v in inputs.items():
+  print(k,v.shape)
+
+
+with torch.no_grad():
+  outputs = model(**inputs)
+
+image = np.array(sampleImage)
+
+#results = processor.post_process_instance_segmentation(outputs, return_binary_maps = True)[0]
+results = processor.post_process_instance_segmentation(outputs)[0]
+print(results.keys())
+
+#%%
+from collections import defaultdict
+import matplotlib.patches as mpatches
+from matplotlib import cm
+
+def draw_panoptic_segmentation(segmentation, segments_info):
+    # get the used color map
+    viridis = cm.get_cmap('viridis', torch.max(segmentation))
+    fig, ax = plt.subplots()
+    ax.imshow(segmentation)
+    instances_counter = defaultdict(int)
+    handles = []
+    # for each segment, draw its legend
+    for segment in segments_info:
+        segment_id = segment['id']
+        segment_label_id = segment['label_id']
+        segment_label = model.config.id2label[segment_label_id]
+        label = f"{segment_label}-{instances_counter[segment_label_id]}"
+        instances_counter[segment_label_id] += 1
+        color = viridis(segment_id)
+        handles.append(mpatches.Patch(color=color, label=label))
+        
+    ax.legend(handles=handles)
+
+draw_panoptic_segmentation(**results)
+
+
+
+
+#%%
+im = Image.fromarray(final_overlay)
+plt.imshow(im)
+
+#%%
 image_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/images/896_1.tif"
 image1 = np.array(Image.open(image_path).convert('RGB'), dtype=float32)
 image2 = np.array(Image.open(image_path))
 #%%
 
 
+instance_map = sio.loadmat("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/annotations/896_1.mat")["inst_map"]
+mapping = np.array(sio.loadmat("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/annotations/896_1.mat")["class_map"], dtype=np.uint16)
 
-mapping = sio.loadmat("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/annotations/896_1.mat")["class_map"]
+
 
 is_empty_mask = np.all(mapping == 0)
 
 if not mapping.any():
     print('none')
+
+#%%
+# Getting unique IDs from the instance map
+instance_map = sio.loadmat("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/annotations/896_1.mat")["inst_map"]
+unique_ids = np.unique(instance_map)
+
+# Creating a dictionary where each object has a class value of 1
+mapping = {obj_id: 1 for obj_id in unique_ids if obj_id != 0}
+    
