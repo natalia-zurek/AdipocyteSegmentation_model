@@ -18,8 +18,15 @@ from transformers import Mask2FormerForUniversalSegmentation
 from tqdm.auto import tqdm
 import os
 import scipy.io as sio
-from matplotlib import pyplot as plt
+from datetime import datetime
+
 #%% 
+today_date = datetime.today().date()
+save_checkpoints_folder =  f'C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models {today_date}/'
+
+if not os.path.exists(save_checkpoints_folder):
+    os.makedirs(save_checkpoints_folder)
+
 
 # CUSTOM DATASET CLASS
 class ImageSegmentationDataset(Dataset):
@@ -174,90 +181,10 @@ for epoch in range(num_epochs):
       optimizer.step()
 
   if (epoch + 1) % 5 == 0 or epoch == (num_epochs - 1):
-    checkpoint_path = f'C:/Ovarian cancer project/trained models/model12282023/mask2former_adipocyte_test_epoch_{epoch+1}.pt'
-    torch.save(model.state_dict(), checkpoint_path)
+    #checkpoint_path = f'C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models/mask2former_adipocyte_test_epoch_{epoch+1}.pt'
+    #torch.save(model.state_dict(), checkpoint_path)
+    checkpoint_path = os.path.join(save_checkpoints_folder, f'mask2former_adipocyte_test_epoch_{epoch+1}')
+    model.save_pretrained(checkpoint_path)
+    processor.save_pretrained(checkpoint_path)  
     print(f"Model saved to {checkpoint_path}")
 
-#%% MODEL INFERENCE
-from transformers import Mask2FormerImageProcessor
-
-processor = Mask2FormerImageProcessor()
-
-testDir = os.listdir('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/images')
-sampleImage = Image.open(os.path.join('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/images' ,testDir[0])).convert('RGB')
-# sampleImage = Image.open(').convert('RGB')
-sampleImage
-#%%
-# prepare image for the model
-inputs = processor(sampleImage, return_tensors="pt").to(device)
-for k,v in inputs.items():
-  print(k,v.shape)
-
-
-with torch.no_grad():
-  outputs = model(**inputs)
-
-image = np.array(sampleImage)
-
-#results = processor.post_process_instance_segmentation(outputs, return_binary_maps = True)[0]
-results = processor.post_process_instance_segmentation(outputs)[0]
-print(results.keys())
-
-#%%
-from collections import defaultdict
-import matplotlib.patches as mpatches
-from matplotlib import cm
-
-def draw_panoptic_segmentation(segmentation, segments_info):
-    # get the used color map
-    viridis = cm.get_cmap('viridis', torch.max(segmentation))
-    fig, ax = plt.subplots()
-    ax.imshow(segmentation)
-    instances_counter = defaultdict(int)
-    handles = []
-    # for each segment, draw its legend
-    for segment in segments_info:
-        segment_id = segment['id']
-        segment_label_id = segment['label_id']
-        segment_label = model.config.id2label[segment_label_id]
-        label = f"{segment_label}-{instances_counter[segment_label_id]}"
-        instances_counter[segment_label_id] += 1
-        color = viridis(segment_id)
-        handles.append(mpatches.Patch(color=color, label=label))
-        
-    ax.legend(handles=handles)
-
-draw_panoptic_segmentation(**results)
-
-
-
-
-#%%
-im = Image.fromarray(final_overlay)
-plt.imshow(im)
-
-#%%
-image_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/images/896_1.tif"
-image1 = np.array(Image.open(image_path).convert('RGB'), dtype=float32)
-image2 = np.array(Image.open(image_path))
-#%%
-
-
-instance_map = sio.loadmat("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/annotations/896_1.mat")["inst_map"]
-mapping = np.array(sio.loadmat("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/annotations/896_1.mat")["class_map"], dtype=np.uint16)
-
-
-
-is_empty_mask = np.all(mapping == 0)
-
-if not mapping.any():
-    print('none')
-
-#%%
-# Getting unique IDs from the instance map
-instance_map = sio.loadmat("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/annotations/896_1.mat")["inst_map"]
-unique_ids = np.unique(instance_map)
-
-# Creating a dictionary where each object has a class value of 1
-mapping = {obj_id: 1 for obj_id in unique_ids if obj_id != 0}
-    

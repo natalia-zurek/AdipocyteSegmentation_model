@@ -42,7 +42,7 @@ mask_path = 'C:\Ovarian cancer project\Adipocyte dataset\train\masks';
 mkdir(output_path);
 
 files = [dir(fullfile(images_path, '*.tif')); dir(fullfile(images_path, '*.jpg')); dir(fullfile(images_path, '*.png'))];
-%%
+%% 
 addpath(genpath('c:/Ovarian cancer project/AdipocyteSegmentation_model'));
 
 save_overlay = 1;

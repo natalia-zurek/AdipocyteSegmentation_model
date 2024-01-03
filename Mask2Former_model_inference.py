@@ -13,23 +13,56 @@ import torch
 import os
 from matplotlib import pyplot as plt
 import cv2
+from transformers import Mask2FormerForUniversalSegmentation
+from transformers import Mask2FormerConfig, Mask2FormerModel
+
 #%% MODEL INFERENCE
 
-model_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models/model12292023/mask2former_adipocyte_test_epoch_40.pt"
-image_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/images"
+model_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models 2024-01-02/mask2former_adipocyte_test_epoch_10"
+#image_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/images new"
+image_path = 'C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/to change'
 save_dir = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset"
 
-#TODO: load model
-#model2 = torch.load(model_path)
 
-#model2 = Model()
-model2.load_state_dict(torch.load(model_path))
+
+
+# Accessing the model configuration
+#configuration = model2.config
+
+#TODO: load model 
+#%%NOT SURE IF THIS WORKS (it doesn't)
+model = Mask2FormerForUniversalSegmentation.from_pretrained("facebook/mask2former-swin-large-coco-instance",
+                                                          ignore_mismatched_sizes=False)
+model.load_state_dict(torch.load(model_path))
+#%% doesnt work
+# Initializing a Mask2Former facebook/mask2former-swin-small-coco-instance configuration
+configuration = Mask2FormerConfig()
+# Initializing a model (with random weights) from the facebook/mask2former-swin-small-coco-instance style configuration
+model = Mask2FormerModel(configuration)
+model.load_state_dict(torch.load(model_path))
+#%% size mismatch
+configuration = Mask2FormerConfig()
+# Initializing a model (with random weights) from the facebook/mask2former-swin-small-coco-instance style configuration
+model = Mask2FormerForUniversalSegmentation(configuration)
+model.load_state_dict(torch.load(model_path))
+#model2 = Mask2FormerForUniversalSegmentation()
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#%%
+model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path, ignore_mismatched_sizes=False)
+#%% different way to load the model
 
+model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path).to(device)
+#this processor?
+processor = Mask2FormerForUniversalSegmentation.from_pretrained(model_path)
+
+
+#%%
+#TODO: is this processor ok? because I'm saving differently configured processor 
 processor = Mask2FormerImageProcessor()
 
 image_list = os.listdir(image_path)
-image = Image.open(os.path.join('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset/images', image_list[0])).convert('RGB')
+image = Image.open(os.path.join(image_path, image_list[5])).convert('RGB')
 
 # prepare image for the model
 inputs = processor(image, return_tensors="pt").to(device)
@@ -38,7 +71,7 @@ for k,v in inputs.items():
 
 
 with torch.no_grad():
-  outputs = model2(**inputs)
+  outputs = model(**inputs)
 
 image = np.array(image)
 
@@ -78,10 +111,12 @@ for segment in results['segments_info']:
     red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
     final_overlay[:,:,0] = red_channel
 
-cv2.imwrite('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/overlay2.png', final_overlay)
+#cv2.imwrite('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/overlay2.png', final_overlay)
 # After accumulating all masks, blend final overlay with original image
 blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
 
 # Display the result
 plt.imshow(blended)
 plt.show()
+#%%
+cv2.imwrite(f'C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/{image_list[5]}', blended)

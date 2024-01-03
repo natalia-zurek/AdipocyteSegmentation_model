@@ -1,8 +1,8 @@
-folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\QuPath_adipocyte_omental_forM\adipocyte masks';
-img_path = 'C:\Ovarian cancer project\Adipocyte dataset\QuPath_adipocyte_omental_forM\imagesM';
-output_path = 'C:\Ovarian cancer project\Adipocyte dataset\QuPath_adipocyte_omental_forM\overlay';
+folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images new\masks';
+img_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images new';
+output_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images new\overlay';
 mkdir(output_path);
-files = dir(fullfile(folder_path, '*.png'));
+files = dir(fullfile(img_path, '*.tif'));
 for i = 1:size(files, 1)
     file_path = fullfile(files(i).folder, files(i).name);
     [~,name,~] = fileparts(file_path);

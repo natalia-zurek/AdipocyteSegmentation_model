@@ -1,5 +1,5 @@
-folder_path = 'D:\QuPath projects\Adipocyte dataset_marcel\original geojson';
-output_path = 'D:\QuPath projects\Adipocyte dataset_marcel\corrected geojson';
+folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images new\geojson';
+output_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images new\corrected geojson';
 mkdir(output_path);
 files = dir(fullfile(folder_path, '*.geojson'));
 
@@ -12,7 +12,7 @@ geojsonText = fileread(file_path);
 
 % Replace "[1," with "[0," and " 1]" with " 0)"
 modifiedGeojsonText = strrep(geojsonText, '[1,', '[0,');
-modifiedGeojsonText = strrep(modifiedGeojsonText, ' 1]', ' 0]');
+modifiedGeojsonText = strrep(modifiedGeojsonText, ',1]', ',0]');
 
 
 % Write the modified GeoJSON text to the output file
