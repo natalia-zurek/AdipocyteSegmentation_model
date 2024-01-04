@@ -114,8 +114,8 @@ if __name__ == "__main__":
 
     save_checkpoints_folder = arguments['--save_folder']
     train_dataset_path = arguments['--train_dataset']
-    batch_size = arguments['--batch_size']
-    num_epochs = arguments['--num_epochs']
+    batch_size = int(arguments['--batch_size'])
+    num_epochs = int(arguments['--num_epochs'])
 
     try:        
         check_path_existence(train_dataset_path)
@@ -127,30 +127,18 @@ if __name__ == "__main__":
         
     
     # DATA AUGMENTATION    
-    ADE_MEAN = np.array([123.675, 116.280, 103.530]) / 255
-    ADE_STD = np.array([58.395, 57.120, 57.375]) / 255
+    #ADE_MEAN = np.array([123.675, 116.280, 103.530]) / 255
+    #ADE_STD = np.array([58.395, 57.120, 57.375]) / 255
 
-    # note that you can include more fancy data augmentation methods here
-    #train_transform = A.Compose([
-    #    A.Resize(width=512, height=512),
-    #    A.HorizontalFlip(p=0.5),  # apply horizontal flip with 50% probability
-    #    A.VerticalFlip(p=0.5),  # apply vertical flip with 50% probability
-    #    A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.1),  # apply random brightness and contrast adjustment
-    #    A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=45, p=0.1),  # apply random shift, scale, and rotation
-    #    A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, p=0.25),  # apply random RGB shift
-    #    A.RandomGamma(gamma_limit=(80, 120), p=0.1),  # apply random gamma adjustment
-    #    A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.1),  # apply random hue, saturation, and value shift
-    #    A.GaussNoise(var_limit=(10.0, 50.0), p=0.15),  # apply random Gaussian noise
-    #    A.Blur(blur_limit=3, p=0.1),  # apply random blur
-    #    # A.OpticalDistortion(p=0.1),  # apply random optical distortion
-    #    # A.GridDistortion(p=0.1),  # apply random grid distortion
-    #    A.Normalize(mean=ADE_MEAN, std=ADE_STD),
-    #    # A.CoarseDropout(max_holes=8, max_height=8, max_width=8, p=0.25),  # apply random coarse dropout
-    #])
 
+    #https://demo.albumentations.ai/
     train_transform = A.Compose([
-        A.Resize(width=512, height=512),
-        A.Normalize(mean=ADE_MEAN, std=ADE_STD),
+        A.GaussianBlur(always_apply=False, p=0.5, blur_limit=(3, 19), sigma_limit=(0, 2)),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        #A.RandomScale(always_apply=False, p=1, interpolation=1, scale_limit=(-0.05, 0.05)), #changing pixel size, interpolation 1 - linear, 
+        A.RandomRotate90(always_apply=False, p=0.5), #Randomly rotate the input by 90 degrees zero or more times.
+        #A.Normalize(mean=ADE_MEAN, std=ADE_STD),
     ])
     
     processor = Mask2FormerImageProcessor(reduce_labels=True, ignore_index=0, do_resize=False, do_rescale=False, do_normalize=False)
