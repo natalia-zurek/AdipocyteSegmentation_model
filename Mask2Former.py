@@ -108,12 +108,14 @@ train_transform = A.Compose([
     
 #%%
 #size = (1024, 1024),
-ADE_MEAN = np.array([123.675, 116.280, 103.530]) / 255
-ADE_STD = np.array([58.395, 57.120, 57.375]) / 255
 
 train_transform = A.Compose([
-    A.Resize(width=512, height=512),
-    A.Normalize(mean=ADE_MEAN, std=ADE_STD),
+    A.GaussianBlur(always_apply=False, p=0.5, blur_limit=(3, 19), sigma_limit=(0, 2)),
+    A.HorizontalFlip(p=0.5),
+    A.VerticalFlip(p=0.5),
+    #A.RandomScale(always_apply=False, p=1, interpolation=1, scale_limit=(-0.05, 0.05)), #changing pixel size, interpolation 1 - linear, 
+    A.RandomRotate90(always_apply=False, p=0.5), #Randomly rotate the input by 90 degrees zero or more times.
+    #A.Normalize(mean=ADE_MEAN, std=ADE_STD),
 ])
 processor = Mask2FormerImageProcessor(reduce_labels=True, ignore_index=0, do_resize=False, do_rescale=False, do_normalize=False)
 train_dataset = ImageSegmentationDataset('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/training dataset', processor, train_transform)
@@ -132,7 +134,7 @@ def collate_fn(batch):
     mask_labels = [example["mask_labels"] for example in batch]
     return {"pixel_values": pixel_values, "pixel_mask": pixel_mask, "class_labels": class_labels, "mask_labels": mask_labels}
 
-train_dataloader = DataLoader(train_dataset, batch_size=4, shuffle=True, collate_fn=collate_fn)
+train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True, collate_fn=collate_fn)
 
 
 
@@ -146,7 +148,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=5e-5)
 
 running_loss = 0.0
 num_samples = 0
-num_epochs = 10
+num_epochs = 100
 
 
 for epoch in range(num_epochs):

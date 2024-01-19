@@ -74,7 +74,12 @@ if __name__ == "__main__":
         
         for image_name in tqdm(image_list):
             image = Image.open(os.path.join(image_path, image_name)).convert('RGB')
+            image = cv2.resize(image, None, fx=1/2, fy=1/2, interpolation=cv2.INTER_LINEAR)
+            
             # prepare image for the model
+            
+            #TODO:divide the image into tiles and make prediction on each tile, and combine
+            
             inputs = processor(image, return_tensors="pt").to(device)
             #for k,v in inputs.items():
             #  print(k,v.shape)
@@ -84,6 +89,7 @@ if __name__ == "__main__":
             results = processor.post_process_instance_segmentation(outputs)[0]
             #results = processor.post_process_instance_segmentation(outputs, return_binary_maps = True)[0]
             instance_seg_mask = results["segmentation"].cpu().detach().numpy()
+            instance_seg_mask = cv2.resize(instance_seg_mask, dsize=(image.width, image.height), interpolation=cv2.INTER_NEAREST_EXACT)
             original_image = np.array(image)
             final_overlay = np.zeros_like(original_image)
             
@@ -108,10 +114,10 @@ if __name__ == "__main__":
             # After accumulating all masks, blend final overlay with original image    
             blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
             #save overlay
-            #cv2.imwrite(os.path.join(save_path, 'overlays', image_name), blended)
-            blended.save(os.path.join(save_path, 'overlays', image_name))
+            cv2.imwrite(os.path.join(save_path, 'overlays', image_name), blended)
+            #blended.save(os.path.join(save_path, 'overlays', image_name))
             #save mask
-            cv2.imwrite(os.path.join(save_path, 'masks', image_name), final_overlay)
+            cv2.imwrite(os.path.join(save_path, 'masks', image_name), instance_seg_mask)
             #TODO: save mat file, PLACEHOLDER
             basename = os.path.splitext(os.path.basename(image_name))[0]
             mat_name = f"{basename}.mat"

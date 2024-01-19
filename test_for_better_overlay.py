@@ -113,13 +113,17 @@ def visualize_instance_seg_mask2(mask):
     return image
 
 instance_seg_mask_disp = visualize_instance_seg_mask2(instance_seg_mask)
+mask_arr2 = np.resize(instance_seg_mask_disp, (image.width, image.height, 3))
+mask_arr3 = cv2.resize(instance_seg_mask_disp, dsize=(image.width, image.height), interpolation=cv2.INTER_NEAREST_EXACT)
+
+
 plt.figure(figsize=(10, 10))
 for plot_index in range(2):
     if plot_index == 0:
         plot_image = image
         title = "Original"
     else:
-        plot_image = instance_seg_mask_disp
+        plot_image = mask_arr3
         title = "Segmentation"
     
     plt.subplot(1, 2, plot_index+1)
@@ -173,35 +177,13 @@ fig.savefig('C:/Users/wylezoln/Box/Ovarian cancer project/Adipocyte segmentation
 
 
 #%%
-def overlay(image, mask, color, alpha, resize=None):
-    """Combines image and its segmentation mask into a single image.
-    https://www.kaggle.com/code/purplejester/showing-samples-with-segmentation-mask-overlay
+from skimage import io, color
+import matplotlib.pyplot as plt
+import numpy as np
+#mask_array = np.array(instance_seg_mask.resize((image.width, image.height)))
+mask_arr = np.resize(instance_seg_mask, (image.width, image.height))
+#%%
+img = np.array(image)
 
-    Params:
-        image: Training image. np.ndarray,
-        mask: Segmentation mask. np.ndarray,
-        color: Color for segmentation mask rendering.  tuple[int, int, int] = (255, 0, 0)
-        alpha: Segmentation mask's transparency. float = 0.5,
-        resize: If provided, both image and its mask are resized before blending them together.
-        tuple[int, int] = (1024, 1024))
-
-    Returns:
-        image_combined: The combined image. np.ndarray
-
-    """
-    color = color[::-1]
-    colored_mask = np.expand_dims(mask, 0).repeat(3, axis=0)
-    colored_mask = np.moveaxis(colored_mask, 0, -1)
-    masked = np.ma.MaskedArray(image, mask=colored_mask, fill_value=color)
-    image_overlay = masked.filled()
-
-    if resize is not None:
-        image = cv2.resize(image.transpose(1, 2, 0), resize)
-        image_overlay = cv2.resize(image_overlay.transpose(1, 2, 0), resize)
-
-    image_combined = cv2.addWeighted(image, 1 - alpha, image_overlay, alpha, 0)
-
-    return image_combined
-
-cmap = cm.get_cmap('jet', lut=len(np.unique(resized_mask)) - 1)
-ov = overlay(image, resized_mask, (255, 0, 0), alpha=0.5)
+io.imshow(color.label2rgb(mask_arr,img,colors=[(255,0,0),(0,0,255)],alpha=0.01, bg_label=0, bg_color=None))
+plt.show()

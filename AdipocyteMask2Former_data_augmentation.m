@@ -13,11 +13,12 @@ mkdir(outputFolderMasks)
 files = dir([labelFolder '\*.' labelExtension]);
 filesNo = length(files);
 values = [-0.03, -0.025, -0.02, -0.015, -0.01, 0.01, 0.015, 0.02, 0.025, 0.03]; %to be decided
+%values = [-0.05, 0.05]; 
 color_num = [1:5 7 12:14];
 n = numel(values);
 tile_size = 1024;
 
-for i = 1%:filesNo
+for i = 1:filesNo
     [~, name, ~] = fileparts(files(i).name);
     img = imread(fullfile(imageFolder, [name '.tif']));
     mask = imread(fullfile(files(i).folder, files(i).name));

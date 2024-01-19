@@ -3,8 +3,9 @@ main_pth = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dat
 images_path = fullfile(main_pth, "images")';
 out_folder = fullfile(main_pth, "images without mask")';
 overlay_path = fullfile(main_pth, "mask overlay")';
-mask_path = fullfile(main_pth, "masks");
+mask_path = fullfile(main_pth, "augmented masks");
 save_path = fullfile(main_pth, "annotations");
+mkdir(out_folder)
 mkdir(overlay_path);
 mkdir(save_path)
 

@@ -48,8 +48,8 @@ class ImageSegmentationDataset(Dataset):
         return len(self.annotation_list)
 
     def __getitem__(self, idx):
-        image_path = os.path.join(self.root_dir, 'images', self.image_list[idx])
-        annotation_path = os.path.join(self.root_dir, 'annotations', self.annotation_list[idx])
+        image_path = os.path.join(self.root_dir, 'images 512 rescale', self.image_list[idx])
+        annotation_path = os.path.join(self.root_dir, 'annotations 512 rescale', self.annotation_list[idx])
         
         image = np.array(Image.open(image_path).convert('RGB'), dtype=np.float32)
         
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         #A.Normalize(mean=ADE_MEAN, std=ADE_STD),
     ])
     
-    processor = Mask2FormerImageProcessor(reduce_labels=True, ignore_index=0, do_resize=False, do_rescale=False, do_normalize=False)
+    processor = Mask2FormerImageProcessor(reduce_labels=True, ignore_index=0, do_resize=False, do_rescale=False, rescale_factor=1/2, do_normalize=False)
     train_dataset = ImageSegmentationDataset(train_dataset_path, processor, train_transform)    
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
