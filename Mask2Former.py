@@ -190,3 +190,161 @@ for epoch in range(num_epochs):
     processor.save_pretrained(checkpoint_path)  
     print(f"Model saved to {checkpoint_path}")
 
+#%%
+def get_mask(segmentation, segment_id):
+  mask = (segmentation.cpu().numpy() == segment_id)
+  visual_mask = (mask * 255).astype(np.uint8)
+  visual_mask = Image.fromarray(visual_mask)
+
+  return visual_mask
+
+def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.2):
+    # Read the image
+    image = cv2.imread(image_path)
+
+    # Get the dimensions of the image
+    image_height, image_width, _ = image.shape
+
+    # Calculate the overlap amount in pixels
+    overlap_pixels_x = int(tile_width * overlap)
+    overlap_pixels_y = int(tile_height * overlap)
+
+    # Initialize lists to store tiles
+    tiles = []
+
+    # Divide the image into tiles with overlap
+    y = 0
+    while y < image_height:
+        x = 0
+        while x < image_width:
+            # Calculate the end coordinates of the tile
+            tile_end_x = min(x + tile_width, image_width)
+            tile_end_y = min(y + tile_height, image_height)
+
+            # Adjust the start coordinates to maintain tile size
+            start_x = max(tile_end_x - tile_width, 0)
+            start_y = max(tile_end_y - tile_height, 0)
+
+            # Extract the tile from the image
+            tile = image[start_y:tile_end_y, start_x:tile_end_x]
+            tiles.append(tile)
+
+            # Update the horizontal position for the next tile
+            x += tile_width - overlap_pixels_x
+
+        # Update the vertical position for the next row of tiles
+        y += tile_height - overlap_pixels_y
+
+    return tiles
+
+
+import cv2
+image_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/test dataset/omental mets part 2/images"
+model_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models/model Ov1 MTC aug 1024 intratumoral fat/mask2former_instseg_adipocyte_epoch_80"
+save_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/model Ov1 MTC aug 1024 intratumoral fat/omental mets part 2"
+os.makedirs(os.path.join(save_path, 'overlays'), exist_ok = True)
+os.makedirs(os.path.join(save_path, 'masks'), exist_ok = True)
+os.makedirs(os.path.join(save_path, 'mat'), exist_ok = True)
+image_list = os.listdir(image_path)
+if not image_list:
+    print("No images found in the specified directory.")
+else:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path).to(device)      
+    processor = Mask2FormerImageProcessor()
+    
+    for image_name in tqdm(image_list):
+        #image = Image.open(os.path.join(image_path, image_name)).convert('RGB')
+        image = cv2.imread(os.path.join(image_path, image_name))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        img_height, img_width = image.shape[:2]
+        #image = cv2.resize(image, None, fx=1/2, fy=1/2, interpolation=cv2.INTER_LINEAR)
+        
+        # prepare image for the model
+        
+        #TODO:divide the image into tiles and make prediction on each tile, and combine
+        
+        inputs = processor(image, return_tensors="pt").to(device)
+        #for k,v in inputs.items():
+        #  print(k,v.shape)
+        with torch.no_grad():
+            outputs = model(**inputs)
+            
+        results = processor.post_process_instance_segmentation(outputs)[0]
+        #results = processor.post_process_instance_segmentation(outputs, return_binary_maps = True)[0]
+        instance_seg_mask = results["segmentation"].cpu().detach().numpy()
+        instance_seg_mask = cv2.resize(instance_seg_mask, dsize=(img_width, img_height), interpolation=cv2.INTER_NEAREST_EXACT)
+        
+        scores = []
+        label_ids = []
+        label_class = []
+        
+        # Iterate through each entry in 'segments_info'
+        for segment_info in results['segments_info']:
+            scores.append(segment_info['score'])
+            label_ids.append(segment_info['id'])
+            label_class.append(segment_info['label_id'])
+    
+        scores = np.array(scores).reshape(-1, 1)
+        label_ids = np.array(label_ids).reshape(-1,1)
+        label_class = np.array(label_class).reshape(-1,1)
+        
+        original_image = np.array(image)
+        final_overlay = np.zeros_like(original_image)
+        
+        # Iterate over the segments and visualize each mask on top of the original image
+        for segment in results['segments_info']:
+            # Get mask for specific instance
+            mask = get_mask(results['segmentation'], segment['id'])
+
+            # Resize mask if necessary
+            mask_array = np.array(mask)
+            if mask_array.shape != original_image.shape[:2]:
+                mask_array = np.array(mask.resize((original_image.shape[1], original_image.shape[0])))
+
+            # Find where the mask is
+            mask_location = mask_array == 255
+
+            # Set the mask area to a specific color
+            red_channel = final_overlay[:,:,0]
+            red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
+            final_overlay[:,:,0] = red_channel
+        
+        # After accumulating all masks, blend final overlay with original image    
+        blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
+        #save overlay
+        cv2.imwrite(os.path.join(save_path, 'overlays', image_name), blended)
+        #blended.save(os.path.join(save_path, 'overlays', image_name))
+        #save mask
+        cv2.imwrite(os.path.join(save_path, 'masks', image_name), instance_seg_mask)
+        #TODO: save mat file, PLACEHOLDER
+        basename = os.path.splitext(os.path.basename(image_name))[0]
+        mat_name = f"{basename}.mat"
+        mat_dict = {
+            "inst_map" : instance_seg_mask, "inst_scores" : scores, "inst_id" : label_ids, "inst_type" : label_class}
+        sio.savemat(os.path.join(save_path, 'mat', mat_name), mat_dict)
+        #print(f'{image_name}... done') #this or tqdm, not both
+        
+#%%
+import cv2
+import numpy as np
+
+
+
+
+# Example usage:
+image_path = 'C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/test dataset/abdominal_laparoscopy/images/3400-11900_GTEX-WI4N_Adipose-Visceral-Omentum.jpg'
+tile_width = 1024  # Set the width of the tile
+tile_height = 1024  # Set the height of the tile
+
+tiles = divide_image_into_tiles(image_path, tile_width, tile_height)
+
+# Now 'tiles' contains all the divided tiles of the image with the specified overlap
+#%%
+for i, tile in enumerate(tiles):
+    cv2.imshow(f'Tile {i+1}', tile)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+ 
+
+        

@@ -1,6 +1,6 @@
 addpath(genpath('C:\Immune infiltrate project\immune infiltrate\Immune-infiltrate-project'));
-imageFolder = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images';
-labelFolder = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\masks';
+imageFolder = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images intratumoral fat';
+labelFolder = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\masks intratumoral fat';
 
 labelExtension = 'png';
 
@@ -20,7 +20,7 @@ tile_size = 1024;
 
 for i = 1:filesNo
     [~, name, ~] = fileparts(files(i).name);
-    img = imread(fullfile(imageFolder, [name '.tif']));
+    img = imread(fullfile(imageFolder, [name '.png']));
     mask = imread(fullfile(files(i).folder, files(i).name));
     for f = color_num(randperm(numel(color_num), 3))
         

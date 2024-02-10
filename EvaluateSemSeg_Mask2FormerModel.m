@@ -1,17 +1,31 @@
-pred_datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\predictions\model Ov1 MTC aug 1024 intratumoral fat\abdominal laparoscopy\mat';
+pred_datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\predictions\model Ov1 MTC aug 512 no_glands\abdominal laparoscopy 10x\masks';
 %gnd_datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\test dataset\omental mets part 2\masks';
-gnd_datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\test dataset\abdominal_laparoscopy\masks';
-dsPred = fileDatastore(pred_datastore_path, ...
-    ReadFcn=@(x)predDataReader(x));
+gnd_datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\test dataset\abdominal_laparoscopy\masks 10x';
 
-dsGND = fileDatastore(gnd_datastore_path, ...
-    ReadFcn=@(x)gndDataReader(x));
+output_path = fullfile(pred_datastore_path, 'binary mask');
+mkdir(output_path);
+files = [dir(fullfile(pred_datastore_path, '*.jpg')); dir(fullfile(pred_datastore_path, '*.png'))];
+%%
+for i = 1:size(files, 1)%i = [1:9 13:19 76:91 94:100]
+    file_path = fullfile(files(i).folder, files(i).name);
+    [~,name,~] = fileparts(file_path);
+    mask = imread(file_path);
+    mask = imbinarize(mask);
+    %mask = imresize(mask, [512 512], "nearest");
+    imwrite(mask, fullfile(output_path, [name '.tif']));
+end
+%%
+classNames = {'Adipocyte'};
+pixelLabelIDs = 1;
+
+dsPred = pixelLabelDatastore(output_path,classNames,pixelLabelIDs);
+dsGND = pixelLabelDatastore(gnd_datastore_path,classNames,pixelLabelIDs);
 tic
-metrics = evaluateInstanceSegmentation(dsPred,dsGND, 0.7, "Verbose",true);
+metrics = evaluateSemanticSegmentation(dsPred,dsGND, "Verbose",true);
 t = toc/60
-
+%%
 save_pth = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\evaluation';
-save(fullfile(save_pth, 'evaluation_model_Ov1_MTC_aug_1024_intratumoral_fat_omental_mets_part_2.mat'),'metrics')
+save(fullfile(save_pth, 'evaluation_model_Ov1_MTC_aug_1024_intratumoral_fat_abdominal_laparoscopty_semseg.mat'),'metrics')
 %% ROC Curve
 precision = metrics.ClassMetrics.Precision{1,1}(1:end);
 recall = metrics.ClassMetrics.Recall{1,1}(1:end);

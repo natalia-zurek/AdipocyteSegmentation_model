@@ -39,8 +39,8 @@ class ImageSegmentationDataset(Dataset):
             dataset
         """
         self.root_dir = root_dir
-        self.image_list = sorted(os.listdir(os.path.join(root_dir, 'images')))
-        self.annotation_list = sorted(os.listdir(os.path.join(root_dir, 'annotations')))
+        self.image_list = sorted(os.listdir(os.path.join(root_dir, 'images intratumoral fat')))
+        self.annotation_list = sorted(os.listdir(os.path.join(root_dir, 'annotations intratumoral fat')))
         self.processor = processor
         self.transform = transform
 
@@ -48,8 +48,8 @@ class ImageSegmentationDataset(Dataset):
         return len(self.annotation_list)
 
     def __getitem__(self, idx):
-        image_path = os.path.join(self.root_dir, 'images 512 rescale', self.image_list[idx])
-        annotation_path = os.path.join(self.root_dir, 'annotations 512 rescale', self.annotation_list[idx])
+        image_path = os.path.join(self.root_dir, 'images intratumoral fat', self.image_list[idx])
+        annotation_path = os.path.join(self.root_dir, 'annotations intratumoral fat', self.annotation_list[idx])
         
         image = np.array(Image.open(image_path).convert('RGB'), dtype=np.float32)
         
@@ -146,8 +146,8 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
     # MODEL
-    model = Mask2FormerForUniversalSegmentation.from_pretrained("facebook/mask2former-swin-large-coco-instance", ignore_mismatched_sizes=True)
-
+    #model = Mask2FormerForUniversalSegmentation.from_pretrained("facebook/mask2former-swin-large-coco-instance", ignore_mismatched_sizes=True)
+    model = Mask2FormerForUniversalSegmentation.from_pretrained("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models/model Ov1 MTC aug 1024/mask2former_adipocyte_test_epoch_80", ignore_mismatched_sizes=False)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
@@ -190,7 +190,7 @@ if __name__ == "__main__":
           optimizer.step()
 
       if (epoch + 1) % 5 == 0 or epoch == (num_epochs - 1):
-        checkpoint_path = os.path.join(save_checkpoints_folder, f'mask2former_adipocyte_test_epoch_{epoch+1}')
+        checkpoint_path = os.path.join(save_checkpoints_folder, f'mask2former_instseg_adipocyte_epoch_{epoch+1}')
         model.save_pretrained(checkpoint_path)
         processor.save_pretrained(checkpoint_path)  
         print(f"Model saved to {checkpoint_path}")

@@ -1,17 +1,17 @@
 % ========= PREPARE DATASET FOR MASK2FORMER ========== 
 main_pth = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset';
-images_path = fullfile(main_pth, "images")';
+images_path = fullfile(main_pth, "images intratumoral fat")';
 out_folder = fullfile(main_pth, "images without mask")';
 overlay_path = fullfile(main_pth, "mask overlay")';
-mask_path = fullfile(main_pth, "augmented masks");
-save_path = fullfile(main_pth, "annotations");
+mask_path = fullfile(main_pth, "masks intratumoral fat");
+save_path = fullfile(main_pth, "annotations intratumoral fat");
 mkdir(out_folder)
 mkdir(overlay_path);
 mkdir(save_path)
 
 addpath(genpath('c:/Ovarian cancer project/AdipocyteSegmentation_model'));
 
-save_overlay = 0;
+save_overlay = 1;
 save_dataset = 1;
 
 files = [dir(fullfile(images_path, '*.tif')); dir(fullfile(images_path, '*.jpg')); dir(fullfile(images_path, '*.png'))];

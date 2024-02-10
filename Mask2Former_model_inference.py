@@ -73,8 +73,14 @@ if __name__ == "__main__":
         processor = Mask2FormerImageProcessor()
         
         for image_name in tqdm(image_list):
-            image = Image.open(os.path.join(image_path, image_name)).convert('RGB')
-            image = cv2.resize(image, None, fx=1/2, fy=1/2, interpolation=cv2.INTER_LINEAR)
+            #image = Image.open(os.path.join(image_path, image_name)).convert('RGB')
+            image = cv2.imread(os.path.join(image_path, image_name))
+            img_height, img_width = image.shape[:2]
+            original_image = np.array(image)
+            final_overlay = np.zeros_like(original_image)
+            
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            #image = cv2.resize(image, None, fx=1/2, fy=1/2, interpolation=cv2.INTER_LINEAR)
             
             # prepare image for the model
             
@@ -89,9 +95,21 @@ if __name__ == "__main__":
             results = processor.post_process_instance_segmentation(outputs)[0]
             #results = processor.post_process_instance_segmentation(outputs, return_binary_maps = True)[0]
             instance_seg_mask = results["segmentation"].cpu().detach().numpy()
-            instance_seg_mask = cv2.resize(instance_seg_mask, dsize=(image.width, image.height), interpolation=cv2.INTER_NEAREST_EXACT)
-            original_image = np.array(image)
-            final_overlay = np.zeros_like(original_image)
+            instance_seg_mask = cv2.resize(instance_seg_mask, dsize=(img_width, img_height), interpolation=cv2.INTER_NEAREST_EXACT)
+            
+            scores = []
+            label_ids = []
+            label_class = []
+            
+            # Iterate through each entry in 'segments_info'
+            for segment_info in results['segments_info']:
+                scores.append(segment_info['score'])
+                label_ids.append(segment_info['id'])
+                label_class.append(segment_info['label_id'])
+            
+            scores = np.array(scores).reshape(-1, 1)
+            label_ids = np.array(label_ids).reshape(-1,1)
+            label_class = np.array(label_class).reshape(-1,1)
             
             # Iterate over the segments and visualize each mask on top of the original image
             for segment in results['segments_info']:
@@ -122,7 +140,7 @@ if __name__ == "__main__":
             basename = os.path.splitext(os.path.basename(image_name))[0]
             mat_name = f"{basename}.mat"
             mat_dict = {
-                "inst_map" : instance_seg_mask}
+                "inst_map" : instance_seg_mask, "inst_scores" : scores, "inst_id" : label_ids, "inst_type" : label_class}
             sio.savemat(os.path.join(save_path, 'mat', mat_name), mat_dict)
             #print(f'{image_name}... done') #this or tqdm, not both
             

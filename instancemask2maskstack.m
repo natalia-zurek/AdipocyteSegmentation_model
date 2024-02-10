@@ -4,7 +4,7 @@ inst_id = unique(mask);
 inst_id(inst_id == 0) = [];
 
 if isempty(inst_id)
-instance_masks = mask;
+    instance_masks = mask;
 else
 
 num_inst = size(inst_id, 1);
