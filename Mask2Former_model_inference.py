@@ -13,6 +13,7 @@
       --save_path=<save_path>               Path where results will be saved
       --image_path=<img_path>               Path to images
       --model_path=<model>                  Path to model
+      --is_nested=<is_nested>               Boolean, set True if the image path is nested. [default: False]
 
 """
 #LIBRARIES
@@ -50,6 +51,7 @@ if __name__ == "__main__":
     model_path = arguments['--model_path']
     image_path = arguments['--image_path']
     save_path = arguments['--save_path']
+    is_nested = arguments['--is_nested']
     
     try:        
         check_path_existence(model_path)
@@ -87,8 +89,7 @@ if __name__ == "__main__":
             #TODO:divide the image into tiles and make prediction on each tile, and combine
             
             inputs = processor(image, return_tensors="pt").to(device)
-            #for k,v in inputs.items():
-            #  print(k,v.shape)
+
             with torch.no_grad():
                 outputs = model(**inputs)
                 
@@ -135,8 +136,7 @@ if __name__ == "__main__":
             cv2.imwrite(os.path.join(save_path, 'overlays', image_name), blended)
             #blended.save(os.path.join(save_path, 'overlays', image_name))
             #save mask
-            cv2.imwrite(os.path.join(save_path, 'masks', image_name), instance_seg_mask)
-            #TODO: save mat file, PLACEHOLDER
+            cv2.imwrite(os.path.join(save_path, 'masks', image_name), instance_seg_mask)        
             basename = os.path.splitext(os.path.basename(image_name))[0]
             mat_name = f"{basename}.mat"
             mat_dict = {

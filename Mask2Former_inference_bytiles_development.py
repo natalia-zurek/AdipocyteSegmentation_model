@@ -26,9 +26,6 @@ import matplotlib.pyplot as plt
 
 #%% FUNCTIONS
 
-for tile in tiles:
-    plt.imshow(tile)
-#%%
 def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.2):
     # Read the image
     image = cv2.imread(image_path)
@@ -108,7 +105,7 @@ processor = Mask2FormerImageProcessor()
 img_width = 2048
 img_height = 2048
 tiles, positions, num_rows, num_cols, overlaps = divide_image_into_tiles(image_path, tile_width, tile_height)
-#%%
+
 inference_results = []
 
 for tile in tiles:
@@ -141,9 +138,9 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
     right_inst_ids_unpaired = []
     right_inst_ids_unpaired.extend(right_inst_ids) #deep copy of the inst ids so they can be deleted without messing with loop
     # Iterate over each instance in the left mask
+    consensus_inst_id = 0
     for left_inst_id, left_score, left_class in zip(left_inst_ids, left_scores, left_classes):
         max_iou = 0
-        consensus_inst_id = 0
         max_score = 0
         corresponding_class = None
 
@@ -182,9 +179,9 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
                 consensus_scores.append(max_score)
                 consensus_classes.append(corresponding_class)
                 
-                #delete right_inst_id from the unapired_right
-                delete_idx = right_inst_ids_unpaired.index(right_inst_id)
-                right_inst_ids_unpaired.pop(delete_idx)
+            #delete right_inst_id from the unapired_right
+            delete_idx = right_inst_ids_unpaired.index(right_inst_id)
+            right_inst_ids_unpaired.pop(delete_idx)
         #unpaired l_mask        
         else:
             consensus_mask[left_overlap == left_inst_id] = consensus_inst_id
@@ -213,6 +210,8 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
     
 def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlap_width, tile_width):
     # Copy the left mask to the combined mask
+    #TODO: list of ids, scores, classes not always a int/float type, instead there is a list inside a list inside a list...
+    #TODO: last mask is not the size 2048
     print(overlap_width)
     combined_mask = -1 * np.ones((left_mask.shape[0], overlap_width + 2 * (tile_width - overlap_width)))
     combined_scores = []
@@ -297,7 +296,7 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
         
     
     #6 clean overlap area from the objects touching the threshold
-    left_overlap = left_mask[:, -overlap_width:]
+    left_overlap = copy.deepcopy(left_mask[:, -overlap_width:])
     overlap_thr_left_idx = tile_width - overlap_width - 1;
     thr_left = left_mask[:, overlap_thr_left_idx]
     thr_inst_ids_left = np.unique(thr_left)
@@ -306,7 +305,7 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
         left_overlap[left_overlap == inst_id] = -1
     
     
-    right_overlap = right_mask[:, :overlap_width] 
+    right_overlap = copy.deepcopy(right_mask[:, :overlap_width])
     overlap_thr_right_idx = overlap_width
     thr_right = right_mask[:, overlap_thr_right_idx]
     thr_inst_ids_right = np.unique(thr_right)
@@ -319,7 +318,7 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
     #assign new ids to overlap mask
 
     ind_combined_max = np.max(np.unique(combined_mask))   
-    overlap_mask, overlap_inst_ids = assign_new_indices(overlap_mask, overlap_inst_ids, ind_combined_max)
+    overlap_mask, overlap_inst_ids = assign_new_indices(overlap_mask, overlap_inst_ids, ind_combined_max+1)
     
     #8 move overlap to combined_mask
     overlap_start_px = combined_mask.shape[1] - tile_width
@@ -337,14 +336,14 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
         # Copy the instances with the inst_id from the smaller mask to the larger mask
         combined_mask[instance_to_move[0] + target_row_offset, instance_to_move[1] + target_col_offset] = inst_id
 
-        row_idx = left_inst_ids.index(inst_id)
-        combined_inst_ids.append(left_inst_ids[row_idx])
-        combined_classes.append(left_classes[row_idx])
-        combined_scores.append(left_scores[row_idx])
-        left_scores.pop(row_idx)
-        left_classes.pop(row_idx)
-        left_inst_ids.pop(row_idx)
-        left_mask[left_mask == inst_id] = -1        
+        #row_idx = left_inst_ids.index(inst_id)
+        #combined_inst_ids.append(left_inst_ids[row_idx])
+        #combined_classes.append(left_classes[row_idx])
+        #combined_scores.append(left_scores[row_idx])
+        #left_scores.pop(row_idx)
+        #left_classes.pop(row_idx)
+        #left_inst_ids.pop(row_idx)
+        #left_mask[left_mask == inst_id] = -1        
     #right
     target_row_offset = 0
     target_col_offset = combined_mask.shape[1] - right_mask.shape[1]
@@ -352,14 +351,14 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
         instance_to_move = np.where(right_mask == inst_id)
         combined_mask[instance_to_move[0] + target_row_offset, instance_to_move[1] + target_col_offset] = inst_id
         
-        row_idx = right_inst_ids.index(inst_id)
-        combined_inst_ids.append(right_inst_ids[row_idx])
-        combined_classes.append(right_classes[row_idx])
-        combined_scores.append(right_scores[row_idx])
-        right_scores.pop(row_idx)
-        right_classes.pop(row_idx)
-        right_inst_ids.pop(row_idx)
-        right_mask[right_mask == inst_id] = -1
+        #row_idx = right_inst_ids.index(inst_id)
+        #combined_inst_ids.append(right_inst_ids[row_idx])
+        #combined_classes.append(right_classes[row_idx])
+        #combined_scores.append(right_scores[row_idx])
+        #right_scores.pop(row_idx)
+        #right_classes.pop(row_idx)
+        #right_inst_ids.pop(row_idx)
+        #right_mask[right_mask == inst_id] = -1
     
     return combined_mask, combined_scores, combined_classes, combined_inst_ids
 
@@ -372,16 +371,18 @@ img_width = 2048
 img_height = 2048
 combined_mask = np.zeros([img_width, img_height])
 mask_rows = []
-combined_ids = []
+combined_ids = [[] for _ in range(num_rows)]
 combined_scores = []
 combined_classes = []
-
+combined_info_idx = 0;
 for i in range(0, num_rows*num_cols):
     if (i+1) % num_cols == 0:
         mask_rows.append(left_mask)
-        combined_ids.append(left_inst_ids)
+        #how to save a list inside a list?
+        combined_ids[combined_info_idx] = (left_inst_ids)
         combined_classes.append(left_classes)
         combined_scores.append(left_scores)
+        combined_info_idx = combined_info_idx + 1
         continue
     if i % num_cols == 0:
         left_mask = inference_results[i]["segmentation"].cpu().detach().numpy()

@@ -198,9 +198,12 @@ def get_mask(segmentation, segment_id):
 
   return visual_mask
 
+
+
 def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.2):
     # Read the image
     image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     # Get the dimensions of the image
     image_height, image_width, _ = image.shape
@@ -237,11 +240,11 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.2):
 
     return tiles
 
-
+#%%
 import cv2
 image_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/test dataset/omental mets part 2/images"
 model_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models/model Ov1 MTC aug 1024 intratumoral fat/mask2former_instseg_adipocyte_epoch_80"
-save_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/model Ov1 MTC aug 1024 intratumoral fat/omental mets part 2"
+save_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/model Ov1 MTC aug 1024 intratumoral fat/omental mets part 2 test"
 os.makedirs(os.path.join(save_path, 'overlays'), exist_ok = True)
 os.makedirs(os.path.join(save_path, 'masks'), exist_ok = True)
 os.makedirs(os.path.join(save_path, 'mat'), exist_ok = True)
@@ -265,8 +268,7 @@ else:
         #TODO:divide the image into tiles and make prediction on each tile, and combine
         
         inputs = processor(image, return_tensors="pt").to(device)
-        #for k,v in inputs.items():
-        #  print(k,v.shape)
+
         with torch.no_grad():
             outputs = model(**inputs)
             
@@ -325,26 +327,4 @@ else:
         sio.savemat(os.path.join(save_path, 'mat', mat_name), mat_dict)
         #print(f'{image_name}... done') #this or tqdm, not both
         
-#%%
-import cv2
-import numpy as np
 
-
-
-
-# Example usage:
-image_path = 'C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/test dataset/abdominal_laparoscopy/images/3400-11900_GTEX-WI4N_Adipose-Visceral-Omentum.jpg'
-tile_width = 1024  # Set the width of the tile
-tile_height = 1024  # Set the height of the tile
-
-tiles = divide_image_into_tiles(image_path, tile_width, tile_height)
-
-# Now 'tiles' contains all the divided tiles of the image with the specified overlap
-#%%
-for i, tile in enumerate(tiles):
-    cv2.imshow(f'Tile {i+1}', tile)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
- 
-
-        
