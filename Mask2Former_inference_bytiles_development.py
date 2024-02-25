@@ -133,27 +133,13 @@ def assign_new_indices(mask, ind_list, start_ind):
     int_ind_list = [int(x) for x in ind_list] #change the float to int list objects
     return mask, int_ind_list
 
-def assign_new_indices_old(mask, ind_list,  start_ind):
-    #TODO: check if the start ind is bigger than the max ind
-    new_ids = np.arange(start_ind, start_ind + len(ind_list))
-
-    # Step 3: Update the mask with the new instance IDs
-    for old_id, new_id in zip(ind_list, new_ids):
-        mask[mask == old_id] = new_id
-
-    # Step 4: Update the ind_list list with the new instance IDs
-    ind_list = [new_id if old_id in ind_list else old_id for old_id, new_id in zip(ind_list, new_ids)]
-   
-    return mask, ind_list
-
 def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, right_overlap, right_scores, right_classes, right_inst_ids, iou_threshold=0.7):
     # Initialize the consensus mask and lists for consensus instance information
     consensus_mask = np.full(left_overlap.shape, -1)
     consensus_inst_ids = []
     consensus_scores = []
     consensus_classes = []
-    #right_inst_ids_unpaired = []
-    #right_inst_ids_unpaired.extend(right_inst_ids) #deep copy of the inst ids so they can be deleted without messing with loop
+    
     # Iterate over each instance in the left mask
     consensus_inst_id = 0
     for left_inst_id, left_score, left_class in zip(left_inst_ids, left_scores, left_classes):
@@ -227,7 +213,6 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
     
 def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlap_width, tile_width):
     # Copy the left mask to the combined mask
-    print(overlap_width)
     combined_mask = -1 * np.ones((left_mask.shape[0], left_mask.shape[1] + right_mask.shape[1] - overlap_width))
     combined_scores = []
     combined_classes = []
@@ -336,13 +321,13 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
     overlap_mask, overlap_inst_ids = assign_new_indices(overlap_mask, overlap_inst_ids, ind_combined_max+1)
     
     #8 move overlap to combined_mask
-    overlap_start_px = combined_mask.shape[1] - tile_width
+    overlap_start_px = left_mask.shape[1] - overlap_width #combined_mask.shape[1] - tile_width #TODO: test it!!!!
     combined_mask[:, overlap_start_px:overlap_start_px+overlap_width] = overlap_mask[:]
     combined_inst_ids = combined_inst_ids + overlap_inst_ids
     combined_classes = combined_classes + overlap_classes
     combined_scores = combined_scores + overlap_scores
        
-    #8 move the instances that cross the threshold to combined mask
+    #9 move the instances that cross the threshold to combined mask
     #left
     target_row_offset = 0
     target_col_offset = 0
@@ -362,25 +347,23 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
     return combined_mask, combined_scores, combined_classes, combined_inst_ids
 
 
-def combine_masks_vertically(mask_top, mask_bottom):
-    
-    pass
+
 #%% main code
 img_width = 2048
 img_height = 2048
 combined_mask = np.zeros([img_width, img_height])
 mask_rows = []
-combined_ids = [[] for _ in range(num_rows)]
-combined_scores = []
-combined_classes = []
+combined_rows_inst_ids = [[] for _ in range(num_rows)]
+combined_rows_scores = []
+combined_rows_classes = []
 combined_info_idx = 0
 for i in range(0, num_rows*num_cols):
     if (i+1) % num_cols == 0:
         mask_rows.append(left_mask)
         #how to save a list inside a list?
-        combined_ids[combined_info_idx] = (left_inst_ids)
-        combined_classes.append(left_classes)
-        combined_scores.append(left_scores)
+        combined_rows_inst_ids[combined_info_idx] = (left_inst_ids)
+        combined_rows_classes.append(left_classes)
+        combined_rows_scores.append(left_scores)
         combined_info_idx = combined_info_idx + 1
         continue
     
@@ -393,11 +376,7 @@ for i in range(0, num_rows*num_cols):
         for segment_info in inference_results[i]['segments_info']:
             left_scores.append(segment_info['score'])
             left_inst_ids.append(segment_info['id'])
-            left_classes.append(segment_info['label_id'])
-            
-        #left_scores = np.array(left_scores).reshape(-1, 1)
-        #left_inst_ids = np.array(left_inst_ids).reshape(-1,1)
-        #left_classes = np.array(left_classes).reshape(-1,1)    
+            left_classes.append(segment_info['label_id'])  
         
 
     right_mask = inference_results[i+1]["segmentation"].cpu().detach().numpy()
@@ -409,25 +388,113 @@ for i in range(0, num_rows*num_cols):
         right_scores.append(segment_info['score'])
         right_inst_ids.append(segment_info['id'])
         right_classes.append(segment_info['label_id'])
-        
-    #right_scores = np.array(right_scores).reshape(-1, 1)
-    #right_inst_ids = np.array(right_inst_ids).reshape(-1,1)
-    #right_classes = np.array(right_classes).reshape(-1,1) 
-    
-        
+              
     left_mask, left_scores, left_classes, left_inst_ids = combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlaps[i+1][0], tile_width)
     
-#%%    
-for i in range(0, num_cols-1):
-    top_mask = mask_rows[i]
-    bottom_mask = mask_rows[i+1]
-    top_mask, top_scores, top_classes, top_inst_ids = combine_masks_vertically(tom_mask, top_scores, top_classes, top_inst_ids, mask_bottom)
+#%% 
+def combine_masks_vertically(top_mask, top_scores, top_classes, top_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlap_height):
+    combined_mask = np.full((top_mask.shape[0] + bottom_mask.shape[0] - overlap_height, top_mask.shape[1]), -1)
+    combined_scores = []
+    combined_classes = []
+    combined_inst_ids = []
     
-#%%
-for idx, (tile, position) in enumerate(zip(tiles, positions), 1):
-        print(f"Tile {idx} at position: {position}")
-#%%
-import matplotlib.pyplot as plt
+    #1 rearrange the ids in bottom mask
+    start_ind = np.max(np.unique(top_mask))+1  
+    bottom_mask, bottom_inst_ids = assign_new_indices(bottom_mask, bottom_inst_ids, start_ind)
+        
+    #2 delete objects touching the bottom edge (top_mask)
+    border = top_mask[-1, :]
+    border_inst_ids = np.unique(border)
+    border_inst_ids = border_inst_ids[border_inst_ids != -1]
+    for inst_id in border_inst_ids:
+        top_mask[top_mask == inst_id] = -1
+        
+        row_idx = top_inst_ids.index(inst_id)
+        top_scores.pop(row_idx)
+        top_classes.pop(row_idx)
+        top_inst_ids.pop(row_idx)
+        
+    #3 delete objects touching the top edge (bottom_mask)
+    border = bottom_mask[0, :]
+    border_inst_ids = np.unique(border)
+    border_inst_ids = border_inst_ids[border_inst_ids != -1]
+    for inst_id in border_inst_ids:
+        bottom_mask[bottom_mask == inst_id] = -1
+        
+        row_idx = bottom_inst_ids.index(inst_id)
+        bottom_scores.pop(row_idx)
+        bottom_classes.pop(row_idx)
+        bottom_inst_ids.pop(row_idx)
+        
+    #4 move all instances that are only in top_mask
+    top_part = top_mask[:-overlap_height, : ]
+       
+    small_mask_rows, small_mask_cols = top_part.shape
+    large_mask_rows, large_mask_cols = combined_mask.shape
+
+    # Define the region to copy the smaller mask into the larger mask
+    copy_region = (slice(0, small_mask_rows), slice(0, small_mask_cols))
+    # Copy the smaller mask into the larger mask
+    combined_mask[copy_region] = top_part
+    # move scores, classes, ids
+    top_part_inst_ids = np.unique(top_part)
+    top_part_inst_ids = top_part_inst_ids[top_part_inst_ids != -1]
+    
+    for inst_id in top_part_inst_ids:
+        row_idx = top_inst_ids.index(inst_id)
+        combined_inst_ids.append(top_inst_ids[row_idx])
+        combined_classes.append(top_classes[row_idx])
+        combined_scores.append(top_scores[row_idx])
+        top_scores.pop(row_idx)
+        top_classes.pop(row_idx)
+        top_inst_ids.pop(row_idx)
+        
+    #5 move all instances that are only in bottom_mask
+    bottom_height = bottom_mask.shape[0] - overlap_height
+    bottom_part = bottom_mask[-bottom_height:, :]
+
+    small_mask_rows, small_mask_cols = bottom_part.shape
+    copy_region = (        
+        slice(large_mask_rows, large_mask_rows - small_mask_rows),
+        slice(small_mask_cols, 0)
+        )
+
+    combined_mask[copy_region] = bottom_part
+    
+    bottom_part_inst_ids = np.unique(bottom_part)
+    bottom_part_inst_ids = bottom_part_inst_ids[bottom_part_inst_ids != -1]
+    
+    for inst_id in bottom_part_inst_ids:
+        row_idx = bottom_inst_ids.index(inst_id)
+        combined_inst_ids.append(bottom_inst_ids[row_idx])
+        combined_classes.append(bottom_classes[row_idx])
+        combined_scores.append(bottom_scores[row_idx])
+        bottom_scores.pop(row_idx)
+        bottom_classes.pop(row_idx)
+        bottom_inst_ids.pop(row_idx)
+    #6 clean overlap area from the objects touching the threshold
+    
+    #7 merge overlap
+    
+    #8 move overlap to combined_mask
+
+    #9 move the instances that cross the threshold to combined mask
+
+    
+    return combined_mask, combined_scores, combined_classes, combined_inst_ids
+
+for i in range(0, num_cols-1):
+    if i == 0:    
+        top_mask = mask_rows[i]
+        top_scores = combined_scores[i]
+        top_classes = combined_classes[i]
+        top_inst_ids = combined_inst_ids[i]
+    
+    bottom_mask = mask_rows[i+1]
+    bottom_scores = combined_scores[i]
+    bottom_classes = combined_classes[i+1]
+    bottom_inst_ids = combined_inst_ids[i+1]
+    top_mask, top_scores, top_classes, top_inst_ids = combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlaps[i+1][1])
 
 
 #%%
@@ -436,7 +503,7 @@ for i, tile in enumerate(tiles):
     plt.axis('off')
     plt.show()
 
- #%%
+#%% to be deleted:
  
 def locate_instances_left_half(mask, midpoint_x):
     # Get the midpoint of the mask along the horizontal axis
