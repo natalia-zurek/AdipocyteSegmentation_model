@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import warnings
 #%% FUNCTIONS
 
-def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.2):
+def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.3):
     # Read the image
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -93,9 +93,19 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.2):
 
 
 #%%
+directories, asd, asdf = os.walk(image_path)
+if len(directories == 0):
+    print(f'No directories')
+#%%
+image_path = 'C:/Ovarian cancer project/Adipocyte analysis/tiles fat wsi 2048 0.3'
+for dirpath, dirnames, filenames in os.walk(image_path):
+    print(f'{dirpath}')
+    #for dirname in dirnames:
+        #print(f'{dirname}')
+#%%
 model_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models/model Ov1 MTC aug 1024 intratumoral fat/mask2former_instseg_adipocyte_epoch_80"
 # Example usage:
-image_path = 'C:/Ovarian cancer project/Adipocyte analysis/tiles fat wsi 2048 0.3/896/896_1.tif'
+image_path = 'C:/Ovarian cancer project/Adipocyte analysis/tiles fat wsi 2048 0.3/896/896_11.tif'
 tile_width = 1024  # Set the width of the tile
 tile_height = 1024  # Set the height of the tile
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -116,21 +126,46 @@ for tile in tiles:
     results = processor.post_process_instance_segmentation(outputs)[0]
     inference_results.append(results)
 #%%
-def assign_new_indices(mask, ind_list, start_ind):
+# Function to check if instance IDs are present in the mask
+def filter_instances(inst_ids, scores, classes, mask):
+    filtered_inst_ids = []
+    filtered_scores = []
+    filtered_classes = []
+
+    # Iterate through each instance ID in the list
+    for idx, inst_id in enumerate(inst_ids):
+        # Check if the instance ID is present in the mask
+        if inst_id in mask:
+            # If present, append the ID, score, and class to the filtered lists
+            filtered_inst_ids.append(inst_id)
+            filtered_scores.append(scores[idx])
+            filtered_classes.append(classes[idx])
+
+    return filtered_inst_ids, filtered_scores, filtered_classes
+
+
+def assign_new_ids(mask, ind_list, start_ind):
     # Check if the start ind is bigger than the max ind
-    max_ind = np.max(ind_list)
-    if start_ind <= max_ind:
-        warnings.warn("start_ind should be greater than the maximum index in ind_list", UserWarning)
-
-    new_ids = np.arange(start_ind, start_ind + len(ind_list))
-
-    # Update the mask with the new instance IDs
-    for old_id, new_id in zip(ind_list, new_ids):
-        mask[mask == old_id] = new_id
-
-    # Update the ind_list list with the new instance IDs
-    ind_list = [new_id if old_id in ind_list else old_id for old_id, new_id in zip(ind_list, new_ids)]
-    int_ind_list = [int(x) for x in ind_list] #change the float to int list objects
+    if not ind_list:
+        mask = mask
+        int_ind_list = ind_list
+    else:
+            
+        max_ind = np.max(ind_list)
+        
+        if start_ind <= max_ind:
+            #warnings.warn("start_ind must be greater than the maximum index in ind_list", UserWarning)
+            start_ind = max_ind+1
+            
+        new_ids = np.arange(start_ind, start_ind + len(ind_list))
+    
+        # Update the mask with the new instance IDs
+        for old_id, new_id in zip(ind_list, new_ids):
+            mask[mask == old_id] = new_id
+    
+        # Update the ind_list list with the new instance IDs
+        ind_list = [new_id if old_id in ind_list else old_id for old_id, new_id in zip(ind_list, new_ids)]
+        int_ind_list = [int(x) for x in ind_list] #change the float to int list objects
     return mask, int_ind_list
 
 def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, right_overlap, right_scores, right_classes, right_inst_ids, iou_threshold=0.7):
@@ -146,17 +181,16 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
         max_iou = 0
         max_score = 0
         corresponding_class = None
-
+        left_mask = np.zeros_like(left_overlap)
+        left_mask[left_overlap == left_inst_id] = 1
+        
         # Iterate over each instance in the right mask
         for right_inst_id, right_score, right_class in zip(right_inst_ids, right_scores, right_classes):
             # Calculate intersection and union between the masks
-            left_mask = np.zeros_like(left_overlap)
-            left_mask[left_overlap == left_inst_id] = 1
             
             right_mask = np.zeros_like(right_overlap)
             right_mask[right_overlap == right_inst_id] = 1
-            
-            
+                       
             intersection = np.logical_and(left_mask, right_mask)
             union = np.logical_or(left_mask, right_mask)
             iou = np.sum(intersection) / np.sum(union)
@@ -166,7 +200,7 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
                 max_iou = iou
                 max_score = right_score
                 corresponding_class = right_class
-
+                max_inst_id = right_inst_id
         # If IoU exceeds the threshold, mark the corresponding instance in the consensus mask
         if max_iou > iou_threshold:
             #paired l_mask
@@ -175,23 +209,27 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
                 consensus_inst_ids.append(consensus_inst_id)
                 consensus_scores.append(left_score)
                 consensus_classes.append(left_class)
+
             #paired r_mask
             else:
-                consensus_mask[right_overlap == right_inst_id] = consensus_inst_id
+                consensus_mask[right_overlap == max_inst_id] = consensus_inst_id
                 consensus_inst_ids.append(consensus_inst_id)
                 consensus_scores.append(max_score)
                 consensus_classes.append(corresponding_class)
-                
+
             #delete right_inst_id from the unapired_right
-            delete_idx = right_inst_ids.index(right_inst_id)
+            delete_idx = right_inst_ids.index(max_inst_id)
             right_inst_ids.pop(delete_idx)
+            right_classes.pop(delete_idx)
+            right_scores.pop(delete_idx)
+            
         #unpaired l_mask        
         else:
             consensus_mask[left_overlap == left_inst_id] = consensus_inst_id
             consensus_inst_ids.append(consensus_inst_id)
             consensus_scores.append(left_score)
             consensus_classes.append(left_class)
-            
+
         consensus_inst_id = consensus_inst_id + 1    
         
     #unpaired r_mask
@@ -205,11 +243,10 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
         consensus_scores.append(right_score_unpaired)
         consensus_classes.append(right_class_unpaired)
         consensus_inst_id = consensus_inst_id + 1
-    
+
     
     return consensus_mask, consensus_inst_ids, consensus_scores, consensus_classes
-    
-  
+     
     
 def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlap_width, tile_width):
     # Copy the left mask to the combined mask
@@ -220,7 +257,7 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
     
     #1 assign different inst_ids to right mask to not mix with left one
     start_ind = np.max(np.unique(left_mask))+1  
-    right_mask, right_inst_ids = assign_new_indices(right_mask, right_inst_ids, start_ind)
+    right_mask, right_inst_ids = assign_new_ids(right_mask, right_inst_ids, start_ind)
     
     #2 delete objects touching the right edge (left_mask)
     border = left_mask[:, -1]
@@ -318,10 +355,10 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
     #assign new ids to overlap mask
 
     ind_combined_max = np.max(np.unique(combined_mask))   
-    overlap_mask, overlap_inst_ids = assign_new_indices(overlap_mask, overlap_inst_ids, ind_combined_max+1)
+    overlap_mask, overlap_inst_ids = assign_new_ids(overlap_mask, overlap_inst_ids, ind_combined_max+1)
     
     #8 move overlap to combined_mask
-    overlap_start_px = left_mask.shape[1] - overlap_width #combined_mask.shape[1] - tile_width #TODO: test it!!!!
+    overlap_start_px = left_mask.shape[1] - overlap_width
     combined_mask[:, overlap_start_px:overlap_start_px+overlap_width] = overlap_mask[:]
     combined_inst_ids = combined_inst_ids + overlap_inst_ids
     combined_classes = combined_classes + overlap_classes
@@ -377,8 +414,9 @@ for i in range(0, num_rows*num_cols):
             left_scores.append(segment_info['score'])
             left_inst_ids.append(segment_info['id'])
             left_classes.append(segment_info['label_id'])  
-        
 
+        left_inst_ids, left_scores, left_classes = filter_instances(left_inst_ids, left_scores, left_classes, left_mask)
+        
     right_mask = inference_results[i+1]["segmentation"].cpu().detach().numpy()
     right_mask = cv2.resize(right_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
     right_scores = []
@@ -388,11 +426,20 @@ for i in range(0, num_rows*num_cols):
         right_scores.append(segment_info['score'])
         right_inst_ids.append(segment_info['id'])
         right_classes.append(segment_info['label_id'])
-              
+    
+    right_inst_ids, right_scores, right_classes = filter_instances(right_inst_ids, right_scores, right_classes, right_mask)
+       
     left_mask, left_scores, left_classes, left_inst_ids = combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlaps[i+1][0], tile_width)
     
 #%% 
-def combine_masks_vertically(top_mask, top_scores, top_classes, top_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlap_height):
+def get_mask(segmentation, segment_id):
+  mask = (segmentation == segment_id)
+  visual_mask = (mask * 255).astype(np.uint8)
+  visual_mask = Image.fromarray(visual_mask)
+
+  return visual_mask
+
+def combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlap_height):
     combined_mask = np.full((top_mask.shape[0] + bottom_mask.shape[0] - overlap_height, top_mask.shape[1]), -1)
     combined_scores = []
     combined_classes = []
@@ -400,7 +447,7 @@ def combine_masks_vertically(top_mask, top_scores, top_classes, top_ids, bottom_
     
     #1 rearrange the ids in bottom mask
     start_ind = np.max(np.unique(top_mask))+1  
-    bottom_mask, bottom_inst_ids = assign_new_indices(bottom_mask, bottom_inst_ids, start_ind)
+    bottom_mask, bottom_inst_ids = assign_new_ids(bottom_mask, bottom_inst_ids, start_ind)
         
     #2 delete objects touching the bottom edge (top_mask)
     border = top_mask[-1, :]
@@ -497,7 +544,7 @@ def combine_masks_vertically(top_mask, top_scores, top_classes, top_ids, bottom_
     #assign new ids to overlap mask
 
     ind_combined_max = np.max(np.unique(combined_mask))   
-    overlap_mask, overlap_inst_ids = assign_new_indices(overlap_mask, overlap_inst_ids, ind_combined_max+1)
+    overlap_mask, overlap_inst_ids = assign_new_ids(overlap_mask, overlap_inst_ids, ind_combined_max+1)
     
     #8 move overlap to combined_mask
     overlap_start_px = top_mask.shape[0] - overlap_height 
@@ -538,5 +585,25 @@ for i in range(0, num_cols-1):
     bottom_inst_ids = copy.deepcopy(combined_rows_inst_ids[i+1])
     
     top_mask, top_scores, top_classes, top_inst_ids = combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlaps_rows[i+1][1])
-
+#%%
 plt.imshow(top_mask)
+cv2.imwrite("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/model Ov1 MTC aug 1024 intratumoral fat/test overlap tiles approach/masks/test.tif", top_mask.astype(np.float16))
+
+#%%
+
+#%%
+i = 4
+left_mask = inference_results[i]["segmentation"].cpu().detach().numpy()
+left_mask = cv2.resize(left_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
+left_scores = []
+left_classes = []
+left_inst_ids = []
+for segment_info in inference_results[i]['segments_info']:
+    left_scores.append(segment_info['score'])
+    left_inst_ids.append(segment_info['id'])
+    left_classes.append(segment_info['label_id'])  
+    #TODO: check if ids matches ids in mask
+
+# Filter left instances
+left_inst_ids, left_scores, left_classes = filter_instances(left_inst_ids, left_scores, left_classes, left_mask)
+
