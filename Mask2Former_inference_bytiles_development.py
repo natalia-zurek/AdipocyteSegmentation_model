@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import warnings
 #%% FUNCTIONS
 
-def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.3):
+def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.45):
     # Read the image
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -44,6 +44,7 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.3):
     overlaps = []
 
     # Divide the image into tiles with overlap
+    is_end = 0
     y = 0
     pos_y = 1
     while y < image_height:
@@ -51,10 +52,10 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.3):
         pos_x = 1
         while x < image_width:
             # Calculate the end coordinates of the tile
-            
+            print(x)
             tile_end_x = min(x + tile_width, image_width)
             tile_end_y = min(y + tile_height, image_height)
-
+                       
             # Adjust the start coordinates to maintain tile size
             start_x = max(tile_end_x - tile_width, 0)
             start_y = max(tile_end_y - tile_height, 0)
@@ -68,23 +69,27 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.3):
 
             # Calculate the overlap for this tile
             if tile_end_x == img_width:
-                overlap_x = (x + overlap_pixels_x) - (img_width - tile_width)
+                overlap_x = tile_end_x_prev - start_x
             else:
-                overlap_x = overlap_pixels_x
+                overlap_x = copy.deepcopy(overlap_pixels_x)
             #    
             if tile_end_y == img_height:
-                overlap_y = (y + overlap_pixels_y) - (img_height - tile_height)
+                if is_end == 0:
+                    overlap_y = tile_end_y_prev - start_y
+                    is_end = 1
             else:
-                overlap_y = overlap_pixels_y
+                overlap_y = copy.deepcopy(overlap_pixels_y)
                             
             overlaps.append((overlap_x, overlap_y))
 
             # Update the horizontal position for the next tile
-            x += tile_width - overlap_pixels_x
+            x += tile_end_x - overlap_pixels_x 
             pos_x += 1
-
+            
+            tile_end_x_prev = copy.deepcopy(tile_end_x)
+            tile_end_y_prev = copy.deepcopy(tile_end_y)
         # Update the vertical position for the next row of tiles
-        y += tile_height - overlap_pixels_y
+        y += tile_end_y - overlap_pixels_y 
         pos_y += 1
         
     num_rows = pos_y - 1
@@ -92,20 +97,11 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.3):
     return tiles, positions, num_rows, num_cols, overlaps
 
 
-#%%
-directories, asd, asdf = os.walk(image_path)
-if len(directories == 0):
-    print(f'No directories')
-#%%
-image_path = 'C:/Ovarian cancer project/Adipocyte analysis/tiles fat wsi 2048 0.3'
-for dirpath, dirnames, filenames in os.walk(image_path):
-    print(f'{dirpath}')
-    #for dirname in dirnames:
-        #print(f'{dirname}')
+
 #%%
 model_path = "C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models/model Ov1 MTC aug 1024 intratumoral fat/mask2former_instseg_adipocyte_epoch_80"
 # Example usage:
-image_path = 'C:/Ovarian cancer project/Adipocyte analysis/tiles fat wsi 2048 0.3/896/896_11.tif'
+image_path = 'C:/Ovarian cancer project/Adipocyte analysis/tiles fat wsi 2048 0.3/12019/12019_1.tif'
 tile_width = 1024  # Set the width of the tile
 tile_height = 1024  # Set the height of the tile
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -117,7 +113,7 @@ img_height = 2048
 tiles, positions, num_rows, num_cols, overlaps = divide_image_into_tiles(image_path, tile_width, tile_height)
 
 inference_results = []
-
+#%%
 for tile in tiles:
     inputs = processor(tile, return_tensors="pt").to(device)
 
@@ -590,20 +586,30 @@ plt.imshow(top_mask)
 cv2.imwrite("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/model Ov1 MTC aug 1024 intratumoral fat/test overlap tiles approach/masks/test.tif", top_mask.astype(np.float16))
 
 #%%
+image = cv2.imread(image_path)
+image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+original_image = np.array(image)
+final_overlay = np.zeros_like(original_image)
+for inst_id in top_inst_ids:
+    # Get mask for specific instance
+    mask = get_mask(top_mask, inst_id)
 
-#%%
-i = 4
-left_mask = inference_results[i]["segmentation"].cpu().detach().numpy()
-left_mask = cv2.resize(left_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
-left_scores = []
-left_classes = []
-left_inst_ids = []
-for segment_info in inference_results[i]['segments_info']:
-    left_scores.append(segment_info['score'])
-    left_inst_ids.append(segment_info['id'])
-    left_classes.append(segment_info['label_id'])  
-    #TODO: check if ids matches ids in mask
+    # Resize mask if necessary
+    mask_array = np.array(mask)
+    if mask_array.shape != original_image.shape[:2]:
+        mask_array = np.array(mask.resize((original_image.shape[1], original_image.shape[0])))
 
-# Filter left instances
-left_inst_ids, left_scores, left_classes = filter_instances(left_inst_ids, left_scores, left_classes, left_mask)
+    # Find where the mask is
+    mask_location = mask_array == 255
+
+    # Set the mask area to a specific color
+    red_channel = final_overlay[:,:,0]
+    red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
+    final_overlay[:,:,2] = red_channel
+    
+# After accumulating all masks, blend final overlay with original image    
+blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
+plt.imshow(blended)
+#save overlay
+cv2.imwrite(os.path.join('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/model Ov1 MTC aug 1024/tiles fat wsi 2048 0.3', 'test.png'),  cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
 

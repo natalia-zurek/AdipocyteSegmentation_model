@@ -1,5 +1,5 @@
-folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images new\geojson';
-output_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images new\corrected geojson';
+folder_path = 'D:\Datasets\Omental metastases\selected BMI\masks\goejson old';
+output_path = 'D:\Datasets\Omental metastases\selected BMI\masks\geojson';
 mkdir(output_path);
 files = dir(fullfile(folder_path, '*.geojson'));
 

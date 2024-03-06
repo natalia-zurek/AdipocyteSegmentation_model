@@ -10,13 +10,15 @@
 
     Options:
       -h --help                             Show this string.
-      --save_path=<save_path>               Path where results will be saved
-      --image_path=<img_path>               Path to images
-      --model_path=<model>                  Path to model
-      --is_nested                           Boolean, set True if the image path is nested 
-
+      --save_path=<path>                    Path where results will be saved
+      --image_path=<path>                   Path to images
+      --model_path=<path>                   Path to model
+      --is_nested                           Boolean, set True if the image path is nested
+      
+      --tile_height=<int>                   Tile height. [default: 1024]
+      --tile_width=<int>                    Tile weight. [default: 1024]
+      --overlap_fraction=<float>            Overlap between tiles, must be between (0,1) range [default: 0.3]
 """
-#TODO: make a function for all tiling pipeline, one function for nested and not nested
 #TODO: move functions to separate files
 #TODO: make this main more ascetic
 
@@ -34,8 +36,8 @@ from tqdm.auto import tqdm
 import scipy.io as sio
 
 import copy
-import warnings
-#from transformers import Mask2FormerConfig, Mask2FormerModel
+# import warnings
+# #from transformers import Mask2FormerConfig, Mask2FormerModel
 
 #FUNCTIONS
 
@@ -71,10 +73,10 @@ def filter_instances(inst_ids, scores, classes, mask):
     return filtered_inst_ids, filtered_scores, filtered_classes
 
 # Function to divide image into tiles
-def divide_image_into_tiles(image, tile_width, tile_height, overlap=0.3):#(image_path, tile_width, tile_height, overlap=0.3):
+def divide_image_into_tiles(image, tile_width, tile_height, overlap=0.45):
     # Read the image
-    #image = cv2.imread(image_path)
-    #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # image = cv2.imread(image_path)
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     # Get the dimensions of the image
     image_height, image_width, _ = image.shape
@@ -89,6 +91,7 @@ def divide_image_into_tiles(image, tile_width, tile_height, overlap=0.3):#(image
     overlaps = []
 
     # Divide the image into tiles with overlap
+    is_end = 0
     y = 0
     pos_y = 1
     while y < image_height:
@@ -96,10 +99,9 @@ def divide_image_into_tiles(image, tile_width, tile_height, overlap=0.3):#(image
         pos_x = 1
         while x < image_width:
             # Calculate the end coordinates of the tile
-            
             tile_end_x = min(x + tile_width, image_width)
             tile_end_y = min(y + tile_height, image_height)
-
+                       
             # Adjust the start coordinates to maintain tile size
             start_x = max(tile_end_x - tile_width, 0)
             start_y = max(tile_end_y - tile_height, 0)
@@ -112,29 +114,98 @@ def divide_image_into_tiles(image, tile_width, tile_height, overlap=0.3):#(image
             positions.append((pos_y, pos_x))
 
             # Calculate the overlap for this tile
-            if tile_end_x == img_width:
-                overlap_x = (x + overlap_pixels_x) - (img_width - tile_width)
+            if tile_end_x == image_width:
+                overlap_x = tile_end_x_prev - start_x
             else:
-                overlap_x = overlap_pixels_x
+                overlap_x = copy.deepcopy(overlap_pixels_x)
             #    
-            if tile_end_y == img_height:
-                overlap_y = (y + overlap_pixels_y) - (img_height - tile_height)
+            if tile_end_y == image_height:
+                if is_end == 0:
+                    overlap_y = tile_end_y_prev - start_y
+                    is_end = 1
             else:
-                overlap_y = overlap_pixels_y
+                overlap_y = copy.deepcopy(overlap_pixels_y)
                             
             overlaps.append((overlap_x, overlap_y))
 
             # Update the horizontal position for the next tile
-            x += tile_width - overlap_pixels_x
+            x += tile_end_x - overlap_pixels_x 
             pos_x += 1
-
+            
+            tile_end_x_prev = copy.deepcopy(tile_end_x)
+            tile_end_y_prev = copy.deepcopy(tile_end_y)
         # Update the vertical position for the next row of tiles
-        y += tile_height - overlap_pixels_y
+        y += tile_end_y - overlap_pixels_y 
         pos_y += 1
         
     num_rows = pos_y - 1
     num_cols = pos_x - 1   
     return tiles, positions, num_rows, num_cols, overlaps
+
+# def divide_image_into_tiles(image, tile_width, tile_height, overlap=0.45):#(image_path, tile_width, tile_height, overlap=0.45):
+#     # Read the image
+#     #image = cv2.imread(image_path)
+#     #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+#     # Get the dimensions of the image
+#     image_height, image_width, _ = image.shape
+
+#     # Calculate the overlap amount in pixels
+#     overlap_pixels_x = int(tile_width * overlap)
+#     overlap_pixels_y = int(tile_height * overlap)
+
+#     # Initialize lists to store tiles, positions, and overlap for each tile
+#     tiles = []
+#     positions = []
+#     overlaps = []
+
+#     # Divide the image into tiles with overlap
+#     y = 0
+#     pos_y = 1
+#     while y < image_height:
+#         x = 0
+#         pos_x = 1
+#         while x < image_width:
+#             # Calculate the end coordinates of the tile
+            
+#             tile_end_x = min(x + tile_width, image_width)
+#             tile_end_y = min(y + tile_height, image_height)
+
+#             # Adjust the start coordinates to maintain tile size
+#             start_x = max(tile_end_x - tile_width, 0)
+#             start_y = max(tile_end_y - tile_height, 0)
+
+#             # Extract the tile from the image
+#             tile = image[start_y:tile_end_y, start_x:tile_end_x]
+#             tiles.append(tile)
+
+#             # Store the position of the tile
+#             positions.append((pos_y, pos_x))
+
+#             # Calculate the overlap for this tile
+#             if tile_end_x == image_width:
+#                 overlap_x = (x + overlap_pixels_x) - (image_width - tile_width)
+#             else:
+#                 overlap_x = overlap_pixels_x
+#             #    
+#             if tile_end_y == image_height:
+#                 overlap_y = (y + overlap_pixels_y) - (image_height - tile_height)
+#             else:
+#                 overlap_y = overlap_pixels_y
+                            
+#             overlaps.append((overlap_x, overlap_y))
+
+#             # Update the horizontal position for the next tile
+#             x += tile_width - overlap_pixels_x
+#             pos_x += 1
+
+#         # Update the vertical position for the next row of tiles
+#         y += tile_height - overlap_pixels_y
+#         pos_y += 1
+        
+#     num_rows = pos_y - 1
+#     num_cols = pos_x - 1   
+#     return tiles, positions, num_rows, num_cols, overlaps
 
 # Function to assign new ids to the mask
 def assign_new_ids(mask, ind_list, start_ind):
@@ -240,8 +311,7 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
 
     
     return consensus_mask, consensus_inst_ids, consensus_scores, consensus_classes
-     
-    
+       
 # Function to combine masks from rows    
 def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlap_width, tile_width):
     # Copy the left mask to the combined mask
@@ -378,7 +448,6 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
     
     return combined_mask, combined_scores, combined_classes, combined_inst_ids
 
-
 # Function to combine masks by columns
 def combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlap_height):
     combined_mask = np.full((top_mask.shape[0] + bottom_mask.shape[0] - overlap_height, top_mask.shape[1]), -1)
@@ -512,278 +581,240 @@ def combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bo
     
     return combined_mask, combined_scores, combined_classes, combined_inst_ids
 
+def run_inference(image_path, save_path, tile_width, tile_height):
+    os.makedirs(os.path.join(save_path, 'overlays'), exist_ok = True)
+    os.makedirs(os.path.join(save_path, 'masks'), exist_ok = True)
+    os.makedirs(os.path.join(save_path, 'mat'), exist_ok = True)
+    
+    image_list = os.listdir(image_path)
+    if not image_list:
+        print(f"No images found in the directory: {image_path}.")
+    else:      
+        for image_name in tqdm(image_list):
+            
+            if not image_name.endswith(('.jpg', '.jpeg', '.png', '.bmp', 'tif', 'tiff')):
+                continue
+            
+            #image = Image.open(os.path.join(image_path, image_name)).convert('RGB')
+            image = cv2.imread(os.path.join(image_path, image_name))
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            img_height, img_width = image.shape[:2]               
+            original_image = np.array(image)
+            final_overlay = np.zeros_like(original_image)
+                            
+            tiles, positions, num_rows, num_cols, overlaps = divide_image_into_tiles(image, tile_width, tile_height)
+
+            inference_results = []
+
+            for tile in tiles:
+                inputs = processor(tile, return_tensors="pt").to(device)
+
+                with torch.no_grad():
+                    outputs = model(**inputs)
+                results = processor.post_process_instance_segmentation(outputs)[0]
+                inference_results.append(results)               
+            
+            mask_rows = []
+            combined_rows_inst_ids = [[] for _ in range(num_rows)]
+            combined_rows_scores = []
+            combined_rows_classes = []
+            combined_info_idx = 0
+            for i in range(0, num_rows*num_cols):
+                if (i+1) % num_cols == 0:
+                    mask_rows.append(left_mask)
+                    #how to save a list inside a list?
+                    combined_rows_inst_ids[combined_info_idx] = (left_inst_ids)
+                    combined_rows_classes.append(left_classes)
+                    combined_rows_scores.append(left_scores)
+                    combined_info_idx = combined_info_idx + 1
+                    continue
+                
+                if i % num_cols == 0:
+                    left_mask = inference_results[i]["segmentation"].cpu().detach().numpy()
+                    left_mask = cv2.resize(left_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
+                    left_scores = []
+                    left_classes = []
+                    left_inst_ids = []
+                    for segment_info in inference_results[i]['segments_info']:
+                        left_scores.append(segment_info['score'])
+                        left_inst_ids.append(segment_info['id'])
+                        left_classes.append(segment_info['label_id'])  
+
+                    left_inst_ids, left_scores, left_classes = filter_instances(left_inst_ids, left_scores, left_classes, left_mask)
+                    
+                right_mask = inference_results[i+1]["segmentation"].cpu().detach().numpy()
+                right_mask = cv2.resize(right_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
+                right_scores = []
+                right_classes = []
+                right_inst_ids = []
+                for segment_info in inference_results[i+1]['segments_info']:
+                    right_scores.append(segment_info['score'])
+                    right_inst_ids.append(segment_info['id'])
+                    right_classes.append(segment_info['label_id'])
+                
+                right_inst_ids, right_scores, right_classes = filter_instances(right_inst_ids, right_scores, right_classes, right_mask)
+                   
+                left_mask, left_scores, left_classes, left_inst_ids = combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlaps[i+1][0], tile_width)
+                 
+            
+            overlaps_rows = copy.deepcopy(overlaps[0:len(overlaps)-1:num_cols]) #num_rows or num_cols????
+            for i in range(0, num_cols-1):
+                if i == 0:
+                    top_mask = copy.deepcopy(mask_rows[i])
+                    top_scores = copy.deepcopy(combined_rows_scores[i])
+                    top_classes = copy.deepcopy(combined_rows_classes[i])
+                    top_inst_ids = copy.deepcopy(combined_rows_inst_ids[i])
+                
+                bottom_mask = copy.deepcopy(mask_rows[i+1])
+                bottom_scores = copy.deepcopy(combined_rows_scores[i+1])
+                bottom_classes = copy.deepcopy(combined_rows_classes[i+1])
+                bottom_inst_ids = copy.deepcopy(combined_rows_inst_ids[i+1])
+                
+                top_mask, top_scores, top_classes, top_inst_ids = combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlaps_rows[i+1][1])
+            
+            # Iterate over the segments and visualize each mask on top of the original image
+            for inst_id in top_inst_ids:
+                # Get mask for specific instance
+                mask = get_mask(top_mask, inst_id)
+
+                # Resize mask if necessary
+                mask_array = np.array(mask)
+                if mask_array.shape != original_image.shape[:2]:
+                    mask_array = np.array(mask.resize((original_image.shape[1], original_image.shape[0])))
+
+                # Find where the mask is
+                mask_location = mask_array == 255
+
+                # Set the mask area to a specific color
+                red_channel = final_overlay[:,:,2]
+                red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
+                final_overlay[:,:,0] = red_channel
+                
+            # After accumulating all masks, blend final overlay with original image    
+            blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
+            #save overlay
+            cv2.imwrite(os.path.join(save_path, 'overlays', image_name),  cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
+            #blended.save(os.path.join(save_path, 'overlays', image_name))
+            #save mask
+            cv2.imwrite(os.path.join(save_path, 'masks', image_name), top_mask.astype(np.float16))        
+            basename = os.path.splitext(os.path.basename(image_name))[0]
+            mat_name = f"{basename}.mat"
+            mat_dict = {
+                "inst_map" : top_mask, "inst_scores" : top_scores, "inst_ids" : top_inst_ids, "inst_types" : top_classes}
+            sio.savemat(os.path.join(save_path, 'mat', mat_name), mat_dict)
+            #print(f'{image_name}... done') #this or tqdm, not both
+
 
 # MODEL INFERENCE
-if __name__ == "__main__":
-    arguments = docopt(__doc__)
+try:
+    if __name__ == "__main__":
+        arguments = docopt(__doc__)
 
-    model_path = arguments['--model_path']
-    image_path = arguments['--image_path']
-    save_path = arguments['--save_path']
-    is_nested = arguments['--is_nested']
-    tile_width = 1024
-    tile_height = 1024
-    
-    try:        
-        check_path_existence(model_path)
-        check_path_existence(image_path)
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
+        model_path = arguments['--model_path']
+        image_path = arguments['--image_path']
+        save_path = arguments['--save_path']
+        is_nested = arguments['--is_nested']
+        #tile_width = int(arguments['--tile_width'])
+        #tile_height = int(arguments['--tile_height'])
+        # overlap_fraction = float(arguments['--overlap_fraction'])
+        tile_width = 1024
+        tile_height = 1024
         
-    if not os.path.exists(save_path):
-        os.makedirs(save_path, exist_ok = True)  
-    
-    if is_nested == False:
+        # #TODO:
+        # if not 0 < overlap_fraction < 1:
+        #     pass#raise OverlapFractionError("Overlap fraction must be within the range (0, 1).")
         
-        os.makedirs(os.path.join(save_path, 'overlays'), exist_ok = True)
-        os.makedirs(os.path.join(save_path, 'masks'), exist_ok = True)
-        os.makedirs(os.path.join(save_path, 'mat'), exist_ok = True)
-        
-        image_list = os.listdir(image_path)
-        if not image_list:
-            print("No images found in the specified directory.")
-        else:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path).to(device)      
-            processor = Mask2FormerImageProcessor()
+        try:        
+            check_path_existence(model_path)
+            check_path_existence(image_path)
+        except FileNotFoundError as e:
+            print(f"Error: {e}")
             
-            for image_name in tqdm(image_list):
-                #image = Image.open(os.path.join(image_path, image_name)).convert('RGB')
-                image = cv2.imread(os.path.join(image_path, image_name))
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                
-                img_height, img_width = image.shape[:2]               
-                original_image = np.array(image)
-                final_overlay = np.zeros_like(original_image)
-                                
-                tiles, positions, num_rows, num_cols, overlaps = divide_image_into_tiles(image, tile_width, tile_height)
-
-                inference_results = []
-
-                for tile in tiles:
-                    inputs = processor(tile, return_tensors="pt").to(device)
-
-                    with torch.no_grad():
-                        outputs = model(**inputs)
-                    results = processor.post_process_instance_segmentation(outputs)[0]
-                    inference_results.append(results)               
-                
-                mask_rows = []
-                combined_rows_inst_ids = [[] for _ in range(num_rows)]
-                combined_rows_scores = []
-                combined_rows_classes = []
-                combined_info_idx = 0
-                for i in range(0, num_rows*num_cols):
-                    if (i+1) % num_cols == 0:
-                        mask_rows.append(left_mask)
-                        #how to save a list inside a list?
-                        combined_rows_inst_ids[combined_info_idx] = (left_inst_ids)
-                        combined_rows_classes.append(left_classes)
-                        combined_rows_scores.append(left_scores)
-                        combined_info_idx = combined_info_idx + 1
-                        continue
-                    
-                    if i % num_cols == 0:
-                        left_mask = inference_results[i]["segmentation"].cpu().detach().numpy()
-                        left_mask = cv2.resize(left_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
-                        left_scores = []
-                        left_classes = []
-                        left_inst_ids = []
-                        for segment_info in inference_results[i]['segments_info']:
-                            left_scores.append(segment_info['score'])
-                            left_inst_ids.append(segment_info['id'])
-                            left_classes.append(segment_info['label_id'])  
-
-                        left_inst_ids, left_scores, left_classes = filter_instances(left_inst_ids, left_scores, left_classes, left_mask)
-                        
-                    right_mask = inference_results[i+1]["segmentation"].cpu().detach().numpy()
-                    right_mask = cv2.resize(right_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
-                    right_scores = []
-                    right_classes = []
-                    right_inst_ids = []
-                    for segment_info in inference_results[i+1]['segments_info']:
-                        right_scores.append(segment_info['score'])
-                        right_inst_ids.append(segment_info['id'])
-                        right_classes.append(segment_info['label_id'])
-                    
-                    right_inst_ids, right_scores, right_classes = filter_instances(right_inst_ids, right_scores, right_classes, right_mask)
-                       
-                    left_mask, left_scores, left_classes, left_inst_ids = combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlaps[i+1][0], tile_width)
-                     
-                
-                overlaps_rows = copy.deepcopy(overlaps[0:len(overlaps)-1:num_cols]) #num_rows or num_cols????
-                for i in range(0, num_cols-1):
-                    if i == 0:
-                        top_mask = copy.deepcopy(mask_rows[i])
-                        top_scores = copy.deepcopy(combined_rows_scores[i])
-                        top_classes = copy.deepcopy(combined_rows_classes[i])
-                        top_inst_ids = copy.deepcopy(combined_rows_inst_ids[i])
-                    
-                    bottom_mask = copy.deepcopy(mask_rows[i+1])
-                    bottom_scores = copy.deepcopy(combined_rows_scores[i+1])
-                    bottom_classes = copy.deepcopy(combined_rows_classes[i+1])
-                    bottom_inst_ids = copy.deepcopy(combined_rows_inst_ids[i+1])
-                    
-                    top_mask, top_scores, top_classes, top_inst_ids = combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlaps_rows[i+1][1])
-                
-                # Iterate over the segments and visualize each mask on top of the original image
-                for inst_id in top_inst_ids:
-                    # Get mask for specific instance
-                    mask = get_mask(top_mask, inst_id)
-    
-                    # Resize mask if necessary
-                    mask_array = np.array(mask)
-                    if mask_array.shape != original_image.shape[:2]:
-                        mask_array = np.array(mask.resize((original_image.shape[1], original_image.shape[0])))
-    
-                    # Find where the mask is
-                    mask_location = mask_array == 255
-    
-                    # Set the mask area to a specific color
-                    red_channel = final_overlay[:,:,0]
-                    red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
-                    final_overlay[:,:,0] = red_channel
-                    
-                # After accumulating all masks, blend final overlay with original image    
-                blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
-                #save overlay
-                cv2.imwrite(os.path.join(save_path, 'overlays', image_name), blended)
-                #blended.save(os.path.join(save_path, 'overlays', image_name))
-                #save mask
-                cv2.imwrite(os.path.join(save_path, 'masks', image_name), top_mask.astype(np.float16))        
-                basename = os.path.splitext(os.path.basename(image_name))[0]
-                mat_name = f"{basename}.mat"
-                mat_dict = {
-                    "inst_map" : top_mask, "inst_scores" : top_scores, "inst_ids" : top_inst_ids, "inst_types" : top_classes}
-                sio.savemat(os.path.join(save_path, 'mat', mat_name), mat_dict)
-                #print(f'{image_name}... done') #this or tqdm, not both
-    else:
+        if not os.path.exists(save_path):
+            os.makedirs(save_path, exist_ok = True)  
         
-        print("Finding nested directories...")
-        #TODO: check if there are directories, if not terminate the code
-        directories = os.listdir(image_path)
-        if len(directories) == 0:
-            print(f'No directories in root folder')
+        print("Loading model...")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path).to(device)      
         processor = Mask2FormerImageProcessor()
-        for dirpath, dirnames, filenames in os.walk(image_path):
-            print(f"Working on directory: {dirpath}")
             
-            os.makedirs(os.path.join(save_path, dirnames, 'overlays'), exist_ok = True)
-            os.makedirs(os.path.join(save_path, dirnames, 'masks'), exist_ok = True)
-            os.makedirs(os.path.join(save_path, dirnames, 'mat'), exist_ok = True)
+        if is_nested == False:
             
-            for filename in tqdm(filenames):
+            run_inference(image_path, save_path, tile_width, tile_height)
+
+        else:
+            
+            print("Finding nested directories...")
+            directories = os.listdir(image_path)
+            if len(directories) == 0:
+                print(f'No directories in {image_path}')
+            
+            for directory in directories:
+                save_path_directory = os.path.join(save_path, directory)
+                image_path_directory = os.path.join(image_path, directory)
                 
-                # Check if the file is an image file (you can add more extensions as needed)
-                if not filename.endswith(('.jpg', '.jpeg', '.png', '.bmp', 'tif', 'tiff')):
-                    continue
+                run_inference(image_path_directory, save_path_directory, tile_width, tile_height)
+            
+
+    while True:
+        pass  # Placeholder for your code
+except KeyboardInterrupt:
+    print("Ctrl+C pressed. Exiting...")
+    # Any cleanup or termination actions can be added here
+    
+    
+    
+# if __name__ == "__main__":
+#     arguments = docopt(__doc__)
+
+#     model_path = arguments['--model_path']
+#     image_path = arguments['--image_path']
+#     save_path = arguments['--save_path']
+#     is_nested = arguments['--is_nested']
+#     #tile_width = int(arguments['--tile_width'])
+#     #tile_height = int(arguments['--tile_height'])
+#     # overlap_fraction = float(arguments['--overlap_fraction'])
+#     tile_width = 1024
+#     tile_height = 1024
+    
+#     # #TODO:
+#     # if not 0 < overlap_fraction < 1:
+#     #     pass#raise OverlapFractionError("Overlap fraction must be within the range (0, 1).")
+    
+#     try:        
+#         check_path_existence(model_path)
+#         check_path_existence(image_path)
+#     except FileNotFoundError as e:
+#         print(f"Error: {e}")
+        
+#     if not os.path.exists(save_path):
+#         os.makedirs(save_path, exist_ok = True)  
+    
+#     print("Loading model...")
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path).to(device)      
+#     processor = Mask2FormerImageProcessor()
+        
+#     if is_nested == False:
+        
+#         run_inference(image_path, save_path, tile_width, tile_height)
+
+#     else:
+        
+#         print("Finding nested directories...")
+#         directories = os.listdir(image_path)
+#         if len(directories) == 0:
+#             print(f'No directories in {image_path}')
+        
+#         for directory in directories:
+#             save_path_directory = os.path.join(save_path, directory)
+#             image_path_directory = os.path.join(image_path, directory)
+            
+#             run_inference(image_path_directory, save_path_directory, tile_width, tile_height)
+        
+
+            
+
                                                                      
-                # Read the image file
-                image = cv2.imread(os.path.join(dirpath, filename))
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)                       
-                img_height, img_width = image.shape[:2]               
-                original_image = np.array(image)
-                final_overlay = np.zeros_like(original_image)
-                            
-                tiles, positions, num_rows, num_cols, overlaps = divide_image_into_tiles(image, tile_width, tile_height)
-                inference_results = []
-
-                for tile in tiles:
-                    inputs = processor(tile, return_tensors="pt").to(device)
-
-                    with torch.no_grad():
-                        outputs = model(**inputs)
-                    results = processor.post_process_instance_segmentation(outputs)[0]
-                    inference_results.append(results)               
                 
-                mask_rows = []
-                combined_rows_inst_ids = [[] for _ in range(num_rows)]
-                combined_rows_scores = []
-                combined_rows_classes = []
-                combined_info_idx = 0
-                for i in range(0, num_rows*num_cols):
-                    if (i+1) % num_cols == 0:
-                        mask_rows.append(left_mask)
-                        #how to save a list inside a list?
-                        combined_rows_inst_ids[combined_info_idx] = (left_inst_ids)
-                        combined_rows_classes.append(left_classes)
-                        combined_rows_scores.append(left_scores)
-                        combined_info_idx = combined_info_idx + 1
-                        continue
-                    
-                    if i % num_cols == 0:
-                        left_mask = inference_results[i]["segmentation"].cpu().detach().numpy()
-                        left_mask = cv2.resize(left_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
-                        left_scores = []
-                        left_classes = []
-                        left_inst_ids = []
-                        for segment_info in inference_results[i]['segments_info']:
-                            left_scores.append(segment_info['score'])
-                            left_inst_ids.append(segment_info['id'])
-                            left_classes.append(segment_info['label_id'])  
-
-                        left_inst_ids, left_scores, left_classes = filter_instances(left_inst_ids, left_scores, left_classes, left_mask)
-                        
-                    right_mask = inference_results[i+1]["segmentation"].cpu().detach().numpy()
-                    right_mask = cv2.resize(right_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
-                    right_scores = []
-                    right_classes = []
-                    right_inst_ids = []
-                    for segment_info in inference_results[i+1]['segments_info']:
-                        right_scores.append(segment_info['score'])
-                        right_inst_ids.append(segment_info['id'])
-                        right_classes.append(segment_info['label_id'])
-                    
-                    right_inst_ids, right_scores, right_classes = filter_instances(right_inst_ids, right_scores, right_classes, right_mask)
-                       
-                    left_mask, left_scores, left_classes, left_inst_ids = combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlaps[i+1][0], tile_width)
-                     
-                
-                overlaps_rows = copy.deepcopy(overlaps[0:len(overlaps)-1:num_cols]) #num_rows or num_cols????
-                for i in range(0, num_cols-1):
-                    if i == 0:
-                        top_mask = copy.deepcopy(mask_rows[i])
-                        top_scores = copy.deepcopy(combined_rows_scores[i])
-                        top_classes = copy.deepcopy(combined_rows_classes[i])
-                        top_inst_ids = copy.deepcopy(combined_rows_inst_ids[i])
-                    
-                    bottom_mask = copy.deepcopy(mask_rows[i+1])
-                    bottom_scores = copy.deepcopy(combined_rows_scores[i+1])
-                    bottom_classes = copy.deepcopy(combined_rows_classes[i+1])
-                    bottom_inst_ids = copy.deepcopy(combined_rows_inst_ids[i+1])
-                    
-                    top_mask, top_scores, top_classes, top_inst_ids = combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlaps_rows[i+1][1])
-                
-                # Iterate over the segments and visualize each mask on top of the original image
-                for inst_id in top_inst_ids:
-                    # Get mask for specific instance
-                    mask = get_mask(top_mask, inst_id)
-    
-                    # Resize mask if necessary
-                    mask_array = np.array(mask)
-                    if mask_array.shape != original_image.shape[:2]:
-                        mask_array = np.array(mask.resize((original_image.shape[1], original_image.shape[0])))
-    
-                    # Find where the mask is
-                    mask_location = mask_array == 255
-    
-                    # Set the mask area to a specific color
-                    red_channel = final_overlay[:,:,0]
-                    red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
-                    final_overlay[:,:,0] = red_channel
-                    
-                # After accumulating all masks, blend final overlay with original image    
-                blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
-                #save overlay
-                cv2.imwrite(os.path.join(save_path, 'overlays', image_name), blended)
-                #blended.save(os.path.join(save_path, 'overlays', image_name))
-                #save mask
-                cv2.imwrite(os.path.join(save_path, 'masks', image_name), top_mask.astype(np.float16))        
-                basename = os.path.splitext(os.path.basename(image_name))[0]
-                mat_name = f"{basename}.mat"
-                mat_dict = {
-                    "inst_map" : top_mask, "inst_scores" : top_scores, "inst_ids" : top_inst_ids, "inst_types" : top_classes}
-                sio.savemat(os.path.join(save_path, 'mat', mat_name), mat_dict)
-  
