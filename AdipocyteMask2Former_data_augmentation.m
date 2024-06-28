@@ -1,13 +1,13 @@
-addpath(genpath('C:\Immune infiltrate project\immune infiltrate\Immune-infiltrate-project'));
-imageFolder = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images intratumoral fat';
-labelFolder = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\masks intratumoral fat';
+addpath(genpath('C:\_research_projects\Ovarian cancer project\Ovarian_cancer\'))
+imageFolder = 'C:\_research_projects\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images intratumoral fat';
+labelFolder = 'C:\_research_projects\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\masks intratumoral fat';
 
 labelExtension = 'png';
 
-outputFolder = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\augmented images'; %fullfile(imageFolder, 'Augmented2');
+outputFolder = 'C:\Users\wylezoln\Box\_my_projects\Ovarian cancer project\Visualizations\color augmentation\imgs'; %fullfile(imageFolder, 'Augmented2');
 mkdir(outputFolder)
 
-outputFolderMasks = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\augmented masks';%fullfile(labelFolder, 'Augmented2');
+outputFolderMasks = 'C:\Users\wylezoln\Box\_my_projects\Ovarian cancer project\Visualizations\color augmentation\masks';%fullfile(labelFolder, 'Augmented2');
 mkdir(outputFolderMasks)
 
 files = dir([labelFolder '\*.' labelExtension]);
@@ -17,12 +17,12 @@ values = [-0.03, -0.025, -0.02, -0.015, -0.01, 0.01, 0.015, 0.02, 0.025, 0.03]; 
 color_num = [1:5 7 12:14];
 n = numel(values);
 tile_size = 1024;
-
+%%
 for i = 1:filesNo
     [~, name, ~] = fileparts(files(i).name);
     img = imread(fullfile(imageFolder, [name '.png']));
     mask = imread(fullfile(files(i).folder, files(i).name));
-    for f = color_num(randperm(numel(color_num), 3))
+    for f = color_num%color_num(randperm(numel(color_num), 3))
         
         rImg = colorTransform(img, 'CS', f, 'none');
         

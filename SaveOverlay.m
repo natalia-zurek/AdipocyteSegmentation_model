@@ -1,14 +1,14 @@
 %% FROM PNG
 
-folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\masks intratumoral fat';
-img_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images intratumoral fat';
-output_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\training dataset\images intratumoral fat\overlay';
+folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\masks Omental data part 2';
+img_path = 'C:\Ovarian cancer project\Adipocyte dataset\images Omental data part 2';
+output_path = 'C:\Ovarian cancer project\Adipocyte dataset\images Omental data part 2\overlay2';
 mkdir(output_path);
-files = dir(fullfile(img_path, '*.png'));
+files = dir(fullfile(img_path, '*.tif'));
 for i = 1:size(files, 1)
     file_path = fullfile(files(i).folder, files(i).name);
     [~,name,~] = fileparts(file_path);
-    I = imread(fullfile(img_path, [name '.png']));
+    I = imread(fullfile(img_path, [name '.tif']));
     mask = imread(fullfile(folder_path, [name '.png']));
     mask = bwlabel(mask,4);
     ov = labeloverlay(I, mask, "Transparency", 0.6);
@@ -16,11 +16,11 @@ for i = 1:size(files, 1)
 end
 
 %% FROM MAT
-folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\predictions\model Ov1 MTC aug 1024 intratumoral fat\omental mets part 2';
+folder_path = 'C:\_research_projects\Ovarian cancer project\Adipocyte analysis\graphical abstract\896';
 mat_path = fullfile(folder_path, 'mat');
 %img_path = "C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\test dataset\abdominal_laparoscopy\images";
 %img_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\test dataset\omental mets intratumoral fat ROIs\20x';
-img_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\test dataset\omental mets part 2\images';
+img_path = fullfile(folder_path, '896');
 
 output_path = fullfile(folder_path, 'label overlay');
 mkdir(output_path);
