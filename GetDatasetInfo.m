@@ -1,9 +1,9 @@
 main_pth = "C:\Users\wylezoln\Box\_my_projects\Ovarian cancer project\Adipocyte segmentation model\datasets";
-mask_pth = fullfile(main_pth, "masks/masks unet original/");
-image_path = fullfile(main_pth, "images/images MTD");
-output_path = 'C:\_research_projects\Ovarian cancer project\Adipocyte dataset';
+mask_pth = fullfile(main_pth, "masks/masks TCGA/");
+image_path = fullfile(main_pth, "images/images TCGA/");
+output_path = 'C:\_research_projects\Ovarian cancer project';
 % mkdir(output_path);
-dataset_name = 'abdominal laparoscopy';
+dataset_name = 'TCGA';
 files = dir(fullfile(mask_pth, '*.png'));
 
 T = table();

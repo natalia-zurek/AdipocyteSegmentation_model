@@ -1,8 +1,8 @@
 %% FROM PNG
 
-folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\masks Omental data part 2';
-img_path = 'C:\Ovarian cancer project\Adipocyte dataset\images Omental data part 2';
-output_path = 'C:\Ovarian cancer project\Adipocyte dataset\images Omental data part 2\overlay2';
+folder_path = 'D:\QuPath projects\Adipocyte dataset projects\Adipocyte TCGA\adipocyte masks v2';
+img_path = 'D:\QuPath projects\Adipocyte dataset projects\Adipocyte TCGA\images';
+output_path = 'D:\QuPath projects\Adipocyte dataset projects\Adipocyte TCGA\overlay_v2';
 mkdir(output_path);
 files = dir(fullfile(img_path, '*.tif'));
 for i = 1:size(files, 1)

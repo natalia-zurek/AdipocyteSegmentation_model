@@ -16,7 +16,7 @@ end
 keepIndex = cellfun(@(x) size(x, 1) > 3, P);
     P_filtered = P(keepIndex);
 
-    FC= contour2geojson(P_filtered, 'Adipocyte');
+    FC= contour2geojson(P_filtered, 'Tumor');
 
 % %B = bwboundaries(instance_mask, 4, 'noholes');
 % B = boundarymask(instance_mask, 4);  

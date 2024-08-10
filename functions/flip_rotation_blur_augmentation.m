@@ -27,6 +27,9 @@ switch option
     case 'gblur'
         img_aug = get_gauss_blur(img);
         mask_aug = mask;
+    case 'none'
+        img_aug = img;
+        mask_aug = mask;
     otherwise 
         disp('No such option')
 

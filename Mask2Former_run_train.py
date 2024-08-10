@@ -39,8 +39,8 @@ class ImageSegmentationDataset(Dataset):
             dataset
         """
         self.root_dir = root_dir
-        self.image_list = sorted(os.listdir(os.path.join(root_dir, 'images intratumoral fat')))
-        self.annotation_list = sorted(os.listdir(os.path.join(root_dir, 'annotations intratumoral fat')))
+        self.image_list = sorted(os.listdir(os.path.join(root_dir, 'mask2former images')))
+        self.annotation_list = sorted(os.listdir(os.path.join(root_dir, 'mask2former annotations')))
         self.processor = processor
         self.transform = transform
 
@@ -48,8 +48,8 @@ class ImageSegmentationDataset(Dataset):
         return len(self.annotation_list)
 
     def __getitem__(self, idx):
-        image_path = os.path.join(self.root_dir, 'images intratumoral fat', self.image_list[idx])
-        annotation_path = os.path.join(self.root_dir, 'annotations intratumoral fat', self.annotation_list[idx])
+        image_path = os.path.join(self.root_dir, 'mask2former images', self.image_list[idx])
+        annotation_path = os.path.join(self.root_dir, 'mask2former annotations', self.annotation_list[idx])
         
         image = np.array(Image.open(image_path).convert('RGB'), dtype=np.float32)
         
@@ -142,12 +142,13 @@ if __name__ == "__main__":
     ])
     
     processor = Mask2FormerImageProcessor(reduce_labels=True, ignore_index=0, do_resize=False, do_rescale=False, rescale_factor=1/2, do_normalize=False)
-    train_dataset = ImageSegmentationDataset(train_dataset_path, processor, train_transform)    
+    #train_dataset = ImageSegmentationDataset(train_dataset_path, processor, train_transform)    
+    train_dataset = ImageSegmentationDataset(train_dataset_path, processor, None)    #no augmentation
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
     # MODEL
-    #model = Mask2FormerForUniversalSegmentation.from_pretrained("facebook/mask2former-swin-large-coco-instance", ignore_mismatched_sizes=True)
-    model = Mask2FormerForUniversalSegmentation.from_pretrained("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models/model Ov1 MTC aug 1024/mask2former_adipocyte_test_epoch_80", ignore_mismatched_sizes=False)
+    model = Mask2FormerForUniversalSegmentation.from_pretrained("facebook/mask2former-swin-large-coco-instance", ignore_mismatched_sizes=True)
+    #model = Mask2FormerForUniversalSegmentation.from_pretrained("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/trained models/model Ov1 MTC aug 1024/mask2former_adipocyte_test_epoch_80", ignore_mismatched_sizes=False)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
