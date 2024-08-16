@@ -21,7 +21,10 @@
 """
 #TODO: move functions to separate files
 #TODO: make this main more ascetic
-
+#TODO: https://github.com/huggingface/transformers/issues/21313
+#TODO: processor = MaskFormerImageProcessor.from_pretrained(
+    #"adirik/maskformer-swin-base-sceneparse-instance"
+#)
 
 #LIBRARIES
 from PIL import Image

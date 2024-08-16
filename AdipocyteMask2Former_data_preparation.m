@@ -5,6 +5,7 @@ out_folder_img = "C:\_research_projects\Adipocyte model project\Mask2Former\data
 out_folder_mask = "C:\_research_projects\Adipocyte model project\Mask2Former\data\AL\masks";
 mkdir(out_folder_img)
 mkdir(out_folder_mask)
+%% change pixel size of the images
 
 files = [dir(fullfile(org_img_path, '*.tif')); dir(fullfile(org_img_path, '*.jpg')); dir(fullfile(org_img_path, '*.png'))];
 for i = 1:size(files, 1)
@@ -24,7 +25,8 @@ for i = 1:size(files, 1)
 
 end
 
-%%
+%% save data into mask2former format
+%% ======= PRZETESTOWAC CZY TEN KOD DZIALA Z USUWANIEM MALYCH OBIEKTOW!!!!!11 =========
 main_pth = "C:\_research_projects\Adipocyte model project\Mask2Former\data\validation";
 images_path = fullfile(main_pth, "images/")';
 out_folder = fullfile(main_pth, "images without mask")';
@@ -35,8 +37,7 @@ save_path = fullfile(main_pth, "mask2former annotations");
 mkdir(overlay_path);
 mkdir(save_path)
 
-addpath(genpath('c:/Ovarian cancer project/AdipocyteSegmentation_model'));
-
+min_area_threshold = 10;
 save_overlay = 1;
 save_dataset = 1;
 
@@ -58,6 +59,15 @@ for i = 1:size(files, 1)
 
     % prepare data
     inst_map = bwlabel(class_map, 4);
+    props = regionprops("struct", inst_map, 'BoundingBox', 'Area', 'PixelIdxList');
+    large_objects = find([props.Area] >= min_area_threshold);
+    
+    for idx = setdiff(1:numel(props), large_objects)
+        disp(idx)
+        class_map(props(idx).PixelIdxList) = 0;  % Set the corresponding pixels in class_map to 0 (or background)
+        inst_map(props(idx).PixelIdxList) = 0;
+    end
+
     if save_overlay
     ov = labeloverlay(img, inst_map, "Transparency", 0.6);
     imwrite(ov, fullfile(overlay_path, [name '.png']))

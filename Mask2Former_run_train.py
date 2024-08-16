@@ -39,8 +39,8 @@ class ImageSegmentationDataset(Dataset):
             dataset
         """
         self.root_dir = root_dir
-        self.image_list = sorted(os.listdir(os.path.join(root_dir, 'mask2former images')))
-        self.annotation_list = sorted(os.listdir(os.path.join(root_dir, 'mask2former annotations')))
+        self.image_list = sorted(os.listdir(os.path.join(root_dir, 'images')))
+        self.annotation_list = sorted(os.listdir(os.path.join(root_dir, 'annotations')))
         self.processor = processor
         self.transform = transform
 
@@ -48,8 +48,8 @@ class ImageSegmentationDataset(Dataset):
         return len(self.annotation_list)
 
     def __getitem__(self, idx):
-        image_path = os.path.join(self.root_dir, 'mask2former images', self.image_list[idx])
-        annotation_path = os.path.join(self.root_dir, 'mask2former annotations', self.annotation_list[idx])
+        image_path = os.path.join(self.root_dir, 'images', self.image_list[idx])
+        annotation_path = os.path.join(self.root_dir, 'annotations', self.annotation_list[idx])
         
         image = np.array(Image.open(image_path).convert('RGB'), dtype=np.float32)
         
