@@ -1,35 +1,87 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb 19 14:55:52 2024
+Created on Tue Aug 20 14:29:29 2024
 
 @author: WylezolN
-
-mask2former - prediction by tiles
 """
+#LIBRARIES
 
-#%% load libraries
-from PIL import Image
 import numpy as np
-from transformers import Mask2FormerImageProcessor
-import albumentations as A
 import torch
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-from transformers import Mask2FormerForUniversalSegmentation
-from tqdm.auto import tqdm
 import os
-import scipy.io as sio
-from datetime import datetime
 import cv2
+from tqdm.auto import tqdm
+import scipy.io as sio
 import copy
-import matplotlib.pyplot as plt
-import warnings
-#%% FUNCTIONS
+from PIL import Image
 
-def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.45):
+def postprocess_results(results):
+    """
+    Postprocesses the instance segmentation results to generate instance and class maps.
+
+    Args:
+    - results (dict): The mask2former model's list output, where dict contains keys:
+      'segmentation' and 'segmentation_info'. 'segmentation' is the instance map, and
+      'segmentation_info' contains a list of dictionaries with 'id', 'label_id', 'was_fused', 'score'.
+
+    Returns:
+    - instance_map (np.array): Processed instance map where background is 0 and instance IDs start from 1.
+    - class_map (np.array): Class map where each pixel value corresponds to the class ID.
+    - instance_ids (np.array): Array of instance IDs.
+    - class_ids (np.array): Array of class IDs corresponding to each instance.
+    - scores (np.array): Array of confidence scores corresponding to each instance.
+    """
+
+    instance_ids = []
+    class_ids = []
+    scores = []
+
+    # Process the segmentation map
+    segmentation = results['segmentation']
+    segmentation_info = results['segments_info']
+
+    # Convert background from -1 to 0 and shift all IDs by +1
+    segmentation = segmentation.cpu().detach().numpy()
+    instance_map = segmentation.copy()
+    instance_map += 1
+
+    # Initialize the class_map with zeros (background)
+    class_map = np.zeros_like(instance_map, dtype=np.uint8)
+
+    for info in segmentation_info:
+        instance_id = info['id'] + 1  # Shift instance IDs by +1
+        class_id = info['label_id'] + 1
+        score = info['score']
+
+        # Update class map with the corresponding class ID for the instance
+        class_map[instance_map == instance_id] = class_id
+
+        # Store the instance ID, class ID, and score
+        instance_ids.append(instance_id)
+        class_ids.append(class_id)
+        scores.append(score)
+
+
+    # Convert lists to numpy arrays
+    instance_ids = np.array(instance_ids)
+    class_ids = np.array(class_ids)
+    scores = np.array(scores)
+
+    return instance_map, class_map, instance_ids, class_ids, scores
+
+# Function to get the instance mask
+def get_mask(segmentation, segment_id):
+  mask = (segmentation == segment_id)
+  visual_mask = (mask * 255).astype(np.uint8)
+  visual_mask = Image.fromarray(visual_mask)
+
+  return visual_mask
+
+# Function to divide image into tiles
+def divide_image_into_tiles(image, tile_width, tile_height, overlap=0.45):
     # Read the image
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # image = cv2.imread(image_path)
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     # Get the dimensions of the image
     image_height, image_width, _ = image.shape
@@ -42,7 +94,7 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.45):
     tiles = []
     positions = []
     overlaps = []
-
+    
     # Divide the image into tiles with overlap
     is_end = 0
     y = 0
@@ -52,7 +104,6 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.45):
         pos_x = 1
         while x < image_width:
             # Calculate the end coordinates of the tile
-            print(x)
             tile_end_x = min(x + tile_width, image_width)
             tile_end_y = min(y + tile_height, image_height)
                        
@@ -68,12 +119,12 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.45):
             positions.append((pos_y, pos_x))
 
             # Calculate the overlap for this tile
-            if tile_end_x == img_width:
+            if tile_end_x == image_width:
                 overlap_x = tile_end_x_prev - start_x
             else:
                 overlap_x = copy.deepcopy(overlap_pixels_x)
             #    
-            if tile_end_y == img_height:
+            if tile_end_y == image_height:
                 if is_end == 0:
                     overlap_y = tile_end_y_prev - start_y
                     is_end = 1
@@ -96,50 +147,78 @@ def divide_image_into_tiles(image_path, tile_width, tile_height, overlap=0.45):
     num_cols = pos_x - 1   
     return tiles, positions, num_rows, num_cols, overlaps
 
+def divide_image_into_tiles_new(image, tile_width, tile_height, overlap=0.45):
 
+    image_height, image_width, _ = image.shape
+    if image_height == tile_height and image_width == tile_width:
+        return image, [[0,0]], 1, 1, [[0,0]]
+    else:
+        # Calculate the overlap amount in pixels
+        overlap_pixels_x = int(tile_width * overlap)
+        overlap_pixels_y = int(tile_height * overlap)
+    
+        # Initialize lists to store tiles, positions, and overlap for each tile
+        tiles = []
+        positions = []
+        overlaps = []
+    
+        # Initialize previous end coordinates for overlap calculation
+        tile_end_x_prev = None
+        tile_end_y_prev = None
+    
+        # Divide the image into tiles with overlap
+        is_end = 0
+        y = 0
+        pos_y = 1
+        while y < image_height:
+            x = 0
+            pos_x = 1
+            while x < image_width:
+                # Calculate the end coordinates of the tile
+                tile_end_x = min(x + tile_width, image_width)
+                tile_end_y = min(y + tile_height, image_height)
+                           
+                # Adjust the start coordinates to maintain tile size
+                start_x = max(tile_end_x - tile_width, 0)
+                start_y = max(tile_end_y - tile_height, 0)
+    
+                # Extract the tile from the image
+                tile = image[start_y:tile_end_y, start_x:tile_end_x]
+                tiles.append(tile)
+    
+                # Store the position of the tile
+                positions.append((pos_y, pos_x))
+    
+                # Calculate the overlap for this tile
+                if tile_end_x == image_width:
+                    overlap_x = tile_end_x_prev - start_x if tile_end_x_prev is not None else 0
+                else:
+                    overlap_x = overlap_pixels_x
+                
+                if tile_end_y == image_height:
+                    overlap_y = tile_end_y_prev - start_y if tile_end_y_prev is not None else 0
+                    is_end = 1
+                else:
+                    overlap_y = overlap_pixels_y
+                                
+                overlaps.append((overlap_x, overlap_y))
+    
+                # Update the horizontal position for the next tile
+                x += tile_end_x - overlap_pixels_x 
+                pos_x += 1
+                
+                tile_end_x_prev = tile_end_x
+                tile_end_y_prev = tile_end_y
+                
+            # Update the vertical position for the next row of tiles
+            y += tile_end_y - overlap_pixels_y 
+            pos_y += 1
+            
+        num_rows = pos_y - 1
+        num_cols = pos_x - 1   
+        return tiles, positions, num_rows, num_cols, overlaps
 
-#%%
-model_path = "C:\_research_projects\Adipocyte model project\Mask2Former\trained models\Adipocyte_TCGA_MTD_Abdlap_augx1_x20_v1\mask2former_instseg_adipocyte_epoch_18"
-# Example usage:
-image_path = 'C:\_research_projects\Adipocyte model project\Mask2Former\data\validation\image'
-tile_width = 1024  # Set the width of the tile
-tile_height = 1024  # Set the height of the tile
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path).to(device)      
-processor = Mask2FormerImageProcessor()
-#%%
-img_width = 1024
-img_height = 1024
-tiles, positions, num_rows, num_cols, overlaps = divide_image_into_tiles(image_path, tile_width, tile_height)
-
-inference_results = []
-#%%
-for tile in tiles:
-    inputs = processor(tile, return_tensors="pt").to(device)
-
-    with torch.no_grad():
-        outputs = model(**inputs)
-    results = processor.post_process_instance_segmentation(outputs)[0]
-    inference_results.append(results)
-#%%
-# Function to check if instance IDs are present in the mask
-def filter_instances(inst_ids, scores, classes, mask):
-    filtered_inst_ids = []
-    filtered_scores = []
-    filtered_classes = []
-
-    # Iterate through each instance ID in the list
-    for idx, inst_id in enumerate(inst_ids):
-        # Check if the instance ID is present in the mask
-        if inst_id in mask:
-            # If present, append the ID, score, and class to the filtered lists
-            filtered_inst_ids.append(inst_id)
-            filtered_scores.append(scores[idx])
-            filtered_classes.append(classes[idx])
-
-    return filtered_inst_ids, filtered_scores, filtered_classes
-
-
+# Function to assign new ids to the mask
 def assign_new_ids(mask, ind_list, start_ind):
     # Check if the start ind is bigger than the max ind
     if not ind_list:
@@ -164,6 +243,7 @@ def assign_new_ids(mask, ind_list, start_ind):
         int_ind_list = [int(x) for x in ind_list] #change the float to int list objects
     return mask, int_ind_list
 
+# Function to obtain mask from overlaped (common) region from tiles
 def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, right_overlap, right_scores, right_classes, right_inst_ids, iou_threshold=0.7):
     # Initialize the consensus mask and lists for consensus instance information
     consensus_mask = np.full(left_overlap.shape, -1)
@@ -242,8 +322,8 @@ def get_overlap_mask(left_overlap, left_scores, left_classes, left_inst_ids, rig
 
     
     return consensus_mask, consensus_inst_ids, consensus_scores, consensus_classes
-     
-    
+
+# Function to combine masks from rows    
 def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlap_width, tile_width):
     # Copy the left mask to the combined mask
     combined_mask = -1 * np.ones((left_mask.shape[0], left_mask.shape[1] + right_mask.shape[1] - overlap_width))
@@ -379,62 +459,7 @@ def combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_i
     
     return combined_mask, combined_scores, combined_classes, combined_inst_ids
 
-
-
-#%% main code
-img_width = 2048
-img_height = 2048
-combined_mask = np.zeros([img_width, img_height])
-mask_rows = []
-combined_rows_inst_ids = [[] for _ in range(num_rows)]
-combined_rows_scores = []
-combined_rows_classes = []
-combined_info_idx = 0
-for i in range(0, num_rows*num_cols):
-    if (i+1) % num_cols == 0:
-        mask_rows.append(left_mask)
-        #how to save a list inside a list?
-        combined_rows_inst_ids[combined_info_idx] = (left_inst_ids)
-        combined_rows_classes.append(left_classes)
-        combined_rows_scores.append(left_scores)
-        combined_info_idx = combined_info_idx + 1
-        continue
-    
-    if i % num_cols == 0:
-        left_mask = inference_results[i]["segmentation"].cpu().detach().numpy()
-        left_mask = cv2.resize(left_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
-        left_scores = []
-        left_classes = []
-        left_inst_ids = []
-        for segment_info in inference_results[i]['segments_info']:
-            left_scores.append(segment_info['score'])
-            left_inst_ids.append(segment_info['id'])
-            left_classes.append(segment_info['label_id'])  
-
-        left_inst_ids, left_scores, left_classes = filter_instances(left_inst_ids, left_scores, left_classes, left_mask)
-        
-    right_mask = inference_results[i+1]["segmentation"].cpu().detach().numpy()
-    right_mask = cv2.resize(right_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
-    right_scores = []
-    right_classes = []
-    right_inst_ids = []
-    for segment_info in inference_results[i+1]['segments_info']:
-        right_scores.append(segment_info['score'])
-        right_inst_ids.append(segment_info['id'])
-        right_classes.append(segment_info['label_id'])
-    
-    right_inst_ids, right_scores, right_classes = filter_instances(right_inst_ids, right_scores, right_classes, right_mask)
-       
-    left_mask, left_scores, left_classes, left_inst_ids = combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlaps[i+1][0], tile_width)
-    
-#%% 
-def get_mask(segmentation, segment_id):
-  mask = (segmentation == segment_id)
-  visual_mask = (mask * 255).astype(np.uint8)
-  visual_mask = Image.fromarray(visual_mask)
-
-  return visual_mask
-
+# Function to combine masks by columns
 def combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlap_height):
     combined_mask = np.full((top_mask.shape[0] + bottom_mask.shape[0] - overlap_height, top_mask.shape[1]), -1)
     combined_scores = []
@@ -566,59 +591,144 @@ def combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bo
         
     
     return combined_mask, combined_scores, combined_classes, combined_inst_ids
-#%%
-overlaps_rows = copy.deepcopy(overlaps[0:len(overlaps)-1:num_cols]) #num_rows or num_cols????
-for i in range(0, num_cols-1):
-    if i == 0:
-        top_mask = copy.deepcopy(mask_rows[i])
-        top_scores = copy.deepcopy(combined_rows_scores[i])
-        top_classes = copy.deepcopy(combined_rows_classes[i])
-        top_inst_ids = copy.deepcopy(combined_rows_inst_ids[i])
+
+# Function to check if instance IDs are present in the mask
+def filter_instances(inst_ids, scores, classes, mask):
+    filtered_inst_ids = []
+    filtered_scores = []
+    filtered_classes = []
+
+    # Iterate through each instance ID in the list
+    for idx, inst_id in enumerate(inst_ids):
+        # Check if the instance ID is present in the mask
+        if inst_id in mask:
+            # If present, append the ID, score, and class to the filtered lists
+            filtered_inst_ids.append(inst_id)
+            filtered_scores.append(scores[idx])
+            filtered_classes.append(classes[idx])
+
+    return filtered_inst_ids, filtered_scores, filtered_classes
+
+def run_inference(device, model, processor, image_path, save_path, tile_width, tile_height):
+    os.makedirs(os.path.join(save_path, 'overlays'), exist_ok = True)
+    os.makedirs(os.path.join(save_path, 'masks'), exist_ok = True)
+    os.makedirs(os.path.join(save_path, 'mat'), exist_ok = True)
     
-    bottom_mask = copy.deepcopy(mask_rows[i+1])
-    bottom_scores = copy.deepcopy(combined_rows_scores[i+1])
-    bottom_classes = copy.deepcopy(combined_rows_classes[i+1])
-    bottom_inst_ids = copy.deepcopy(combined_rows_inst_ids[i+1])
-    
-    top_mask, top_scores, top_classes, top_inst_ids = combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlaps_rows[i+1][1])
-#%%
-plt.imshow(top_mask)
-cv2.imwrite("C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/model Ov1 MTC aug 1024 intratumoral fat/test overlap tiles approach/masks/test.tif", top_mask.astype(np.float16))
+    image_list = os.listdir(image_path)
+    if not image_list:
+        print(f"No images found in the directory: {image_path}.")
+    else:      
+        for image_name in tqdm(image_list):
+            
+            if not image_name.endswith(('.jpg', '.jpeg', '.png', '.bmp', 'tif', 'tiff')):
+                continue
+            
+            #image = Image.open(os.path.join(image_path, image_name)).convert('RGB')
+            image = cv2.imread(os.path.join(image_path, image_name))
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+            img_height, img_width = image.shape[:2]               
+            original_image = np.array(image)
+            final_overlay = np.zeros_like(original_image)
+                            
+            tiles, positions, num_rows, num_cols, overlaps = divide_image_into_tiles(image, tile_width, tile_height)
 
-#%%
-image = cv2.imread(image_path)
-image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-original_image = np.array(image)
-final_overlay = np.zeros_like(original_image)
-for inst_id in top_inst_ids:
-    # Get mask for specific instance
-    mask = get_mask(top_mask, inst_id)
+            inference_results = []
 
-    # Resize mask if necessary
-    mask_array = np.array(mask)
-    if mask_array.shape != original_image.shape[:2]:
-        mask_array = np.array(mask.resize((original_image.shape[1], original_image.shape[0])))
+            for tile in tiles:
+                inputs = processor(tile, return_tensors="pt").to(device)
 
-    # Find where the mask is
-    mask_location = mask_array == 255
+                with torch.no_grad():
+                    outputs = model(**inputs)
+                results = processor.post_process_instance_segmentation(outputs)[0]
+                inference_results.append(results)               
+            
+            mask_rows = []
+            combined_rows_inst_ids = [[] for _ in range(num_rows)]
+            combined_rows_scores = []
+            combined_rows_classes = []
+            combined_info_idx = 0
+            for i in range(0, num_rows*num_cols):
+                if (i+1) % num_cols == 0:
+                    mask_rows.append(left_mask)
+                    #how to save a list inside a list?
+                    combined_rows_inst_ids[combined_info_idx] = (left_inst_ids)
+                    combined_rows_classes.append(left_classes)
+                    combined_rows_scores.append(left_scores)
+                    combined_info_idx = combined_info_idx + 1
+                    continue
+                
+                if i % num_cols == 0:
+                    left_mask = inference_results[i]["segmentation"].cpu().detach().numpy()
+                    left_mask = cv2.resize(left_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
+                    left_scores = []
+                    left_classes = []
+                    left_inst_ids = []
+                    for segment_info in inference_results[i]['segments_info']:
+                        left_scores.append(segment_info['score'])
+                        left_inst_ids.append(segment_info['id'])
+                        left_classes.append(segment_info['label_id'])  
 
-    # Set the mask area to a specific color
-    red_channel = final_overlay[:,:,0]
-    red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
-    final_overlay[:,:,2] = red_channel
-    
-# After accumulating all masks, blend final overlay with original image    
-blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
-plt.imshow(blended)
-#save overlay
-cv2.imwrite(os.path.join('C:/Ovarian cancer project/Adipocyte dataset/Mask2Former/predictions/model Ov1 MTC aug 1024/tiles fat wsi 2048 0.3', 'test.png'),  cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
+                    left_inst_ids, left_scores, left_classes = filter_instances(left_inst_ids, left_scores, left_classes, left_mask)
+                    
+                right_mask = inference_results[i+1]["segmentation"].cpu().detach().numpy()
+                right_mask = cv2.resize(right_mask, dsize=(tile_width, tile_height), interpolation=cv2.INTER_NEAREST_EXACT)
+                right_scores = []
+                right_classes = []
+                right_inst_ids = []
+                for segment_info in inference_results[i+1]['segments_info']:
+                    right_scores.append(segment_info['score'])
+                    right_inst_ids.append(segment_info['id'])
+                    right_classes.append(segment_info['label_id'])
+                
+                right_inst_ids, right_scores, right_classes = filter_instances(right_inst_ids, right_scores, right_classes, right_mask)
+                   
+                left_mask, left_scores, left_classes, left_inst_ids = combine_masks_horizontally(left_mask, left_scores, left_classes, left_inst_ids, right_mask, right_scores, right_classes, right_inst_ids, overlaps[i+1][0], tile_width)
+                 
+            
+            overlaps_rows = copy.deepcopy(overlaps[0:len(overlaps)-1:num_cols]) #num_rows or num_cols????
+            for i in range(0, num_cols-1):
+                if i == 0:
+                    top_mask = copy.deepcopy(mask_rows[i])
+                    top_scores = copy.deepcopy(combined_rows_scores[i])
+                    top_classes = copy.deepcopy(combined_rows_classes[i])
+                    top_inst_ids = copy.deepcopy(combined_rows_inst_ids[i])
+                
+                bottom_mask = copy.deepcopy(mask_rows[i+1])
+                bottom_scores = copy.deepcopy(combined_rows_scores[i+1])
+                bottom_classes = copy.deepcopy(combined_rows_classes[i+1])
+                bottom_inst_ids = copy.deepcopy(combined_rows_inst_ids[i+1])
+                
+                top_mask, top_scores, top_classes, top_inst_ids = combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlaps_rows[i+1][1])
+            
+            # Iterate over the segments and visualize each mask on top of the original image
+            for inst_id in top_inst_ids:
+                # Get mask for specific instance
+                mask = get_mask(top_mask, inst_id)
 
-#%% SINGLE INFERENCE
-model_path="C:\_research_projects\Adipocyte model project\Mask2Former\trained models\Adipocyte_TCGA_MTD_Abdlap_augx1_x20_v1\mask2former_instseg_adipocyte_epoch_18" 
-save_path="C:\_research_projects\Adipocyte model project\Mask2Former\predictions\Adipocyte_TCGA_MTD_Abdlap_augx1_x20_v1_18"
-image_path="C:\_research_projects\Adipocyte model project\Mask2Former\data\validation\images"
+                # Resize mask if necessary
+                mask_array = np.array(mask)
+                if mask_array.shape != original_image.shape[:2]:
+                    mask_array = np.array(mask.resize((original_image.shape[1], original_image.shape[0])))
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path).to(device)      
-processor = Mask2FormerImageProcessor()
-model.eval()
+                # Find where the mask is
+                mask_location = mask_array == 255
+
+                # Set the mask area to a specific color
+                red_channel = final_overlay[:,:,2]
+                red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
+                final_overlay[:,:,0] = red_channel
+                
+            # After accumulating all masks, blend final overlay with original image    
+            blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
+            #save overlay
+            cv2.imwrite(os.path.join(save_path, 'overlays', image_name),  cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
+            #blended.save(os.path.join(save_path, 'overlays', image_name))
+            #save mask
+            cv2.imwrite(os.path.join(save_path, 'masks', image_name), top_mask.astype(np.float16))        
+            basename = os.path.splitext(os.path.basename(image_name))[0]
+            mat_name = f"{basename}.mat"
+            mat_dict = {
+                "inst_map" : top_mask, "inst_scores" : top_scores, "inst_ids" : top_inst_ids, "inst_types" : top_classes}
+            sio.savemat(os.path.join(save_path, 'mat', mat_name), mat_dict)
+            #print(f'{image_name}... done') #this or tqdm, not both
