@@ -90,18 +90,10 @@ if validation_frequency != 0:
 # Initialize model
 model_name = "facebook/mask2former-swin-large-coco-instance"
 model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True, num_labels=len(classes)-1)
-config = Mask2FormerConfig.from_pretrained(model_name)
-config.id2label = id2label
-config.label2id = label2id
-model.config = config
-
-# model_name = "facebook/mask2former-swin-large-coco-instance"
 # config = Mask2FormerConfig.from_pretrained(model_name)
 # config.id2label = id2label
 # config.label2id = label2id
-# model = Mask2FormerForUniversalSegmentation(config)
-# base_model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True, num_labels=len(classes)-1)
-# model.model = base_model
+# model.config = config
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)

@@ -22,7 +22,7 @@ def plot_mask(mask, title="Mask"):
     plt.axis('off')  # Turn off the axis labels and ticks
     plt.show()
     
-# class_map = gt_masks[0]
+class_map = mask
 
 for i in range(class_map.shape[0]):
     plt.figure(figsize=(8, 8))

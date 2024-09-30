@@ -27,21 +27,29 @@ end
 
 %% save data into mask2former format
 %% ======= PRZETESTOWAC CZY TEN KOD DZIALA Z USUWANIEM MALYCH OBIEKTOW!!!!!11 =========
-main_pth = "C:\_research_projects\Adipocyte model project\Mask2Former\data\validation";
-images_path = fullfile(main_pth, "images/")';
+main_pth = "C:\_research_projects\Adipocyte model project\Original data";
+images_path = fullfile(main_pth, "images/images MTC2");
 out_folder = fullfile(main_pth, "images without mask")';
 overlay_path = fullfile(main_pth, "mask overlay")';
-mask_path = fullfile(main_pth, "masks/");
-save_path = fullfile(main_pth, "mask2former annotations");
+mask_path = fullfile(main_pth, "masks/masks MTC2");
+save_path = fullfile(main_pth, "annotations/annotations MTC2");
+
+% % main_pth = "C:\_research_projects\Adipocyte model project\Mask2Former\data\training\_data";
+% % images_path = fullfile(main_pth, "augmented images");
+% % overlay_path = fullfile(main_pth, "mask overlay")';
+% % mask_path = fullfile(main_pth, "augmented masks");
+% % save_path = fullfile(main_pth, "augmented annotations");
+
 %mkdir(out_folder)
-mkdir(overlay_path);
+%mkdir(overlay_path);
 mkdir(save_path)
 
 min_area_threshold = 10;
-save_overlay = 1;
+save_overlay = 0;
 save_dataset = 1;
 
 files = [dir(fullfile(images_path, '*.tif')); dir(fullfile(images_path, '*.jpg')); dir(fullfile(images_path, '*.png'))];
+%%
 for i = 1:size(files, 1)
     file_path = fullfile(files(i).folder, files(i).name);
     [~,name,ext] = fileparts(file_path);
@@ -77,24 +85,36 @@ for i = 1:size(files, 1)
 
     save(fullfile(save_path, [name '.mat']),'inst_map', 'class_map')
     end
-
 end
 
 %% DIVIDE DATASET INTO VALIDATION AND TRAINING
-image_main_path = 'C:\_research_projects\Adipocyte model project\Mask2Former\data';
+image_main_path = 'C:\_research_projects\Adipocyte model project\Original data\images\images GTEX 1024';
 save_img_path = "C:\_research_projects\Adipocyte model project\Mask2Former\data";
-mask_main_pth = "C:\_research_projects\Adipocyte model project\Mask2Former\data\binary masks";
+annotation_main_pth = "C:\_research_projects\Adipocyte model project\Original data\annotations\annotations unet GTEX 1024";
+mask_main_pth = "C:\_research_projects\Adipocyte model project\Original data\masks\masks unet GTEX 1024";
 
 %%
 files = dir(fullfile(image_main_path, '*.tif'));
 names = {files.name}.';
+%%
 [val_images, train_images] = split_images(names, 0.2);
-transfer_files(train_images, image_main_path, fullfile(save_img_path, "training/images"), 'move');
-transfer_files(train_images, mask_main_pth, fullfile(save_img_path, "training/masks"), 'copy');
-transfer_files(val_images, image_main_path, fullfile(save_img_path, "validation/images"), 'move');
-transfer_files(val_images, mask_main_pth, fullfile(save_img_path, "validation/masks"), 'copy');
 
+%%
+val_mask = strrep(val_images, '.tif', '.png');
+train_mask = strrep(train_images, '.tif', '.png');
 
+val_anno = strrep(val_images, '.tif', '.mat');
+train_anno = strrep(train_images, '.tif', '.mat');
+%%
+transfer_files(train_images, image_main_path, fullfile(save_img_path, "training/images"), 'copy');
+transfer_files(val_images, image_main_path, fullfile(save_img_path, "validation/images"), 'copy');
+%%
+transfer_files(train_mask, mask_main_pth, fullfile(save_img_path, "training/masks"), 'copy');
+%transfer_files(val_mask, mask_main_pth, fullfile(save_img_path, "validation/masks"), 'copy');
+%%
+transfer_files(train_anno, mask_main_pth, fullfile(save_img_path, "training/annotations"), 'copy');
+transfer_files(val_anno, mask_main_pth, fullfile(save_img_path, "validation/annotations"), 'copy');
+%%
 function [val_images, train_images] = split_images(image_files, validation_ratio)
     % Split a list of image files into validation and training sets
     % 

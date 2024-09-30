@@ -24,7 +24,7 @@
 #TODO: https://github.com/huggingface/transformers/issues/21313 - DONE
 #TODO: processor = MaskFormerImageProcessor.from_pretrained(
     #"adirik/maskformer-swin-base-sceneparse-instance"
-#)
+#
 
 #LIBRARIES
 from transformers import Mask2FormerImageProcessor
@@ -54,8 +54,8 @@ try:
         #tile_width = int(arguments['--tile_width'])
         #tile_height = int(arguments['--tile_height'])
         # overlap_fraction = float(arguments['--overlap_fraction'])
-        tile_width = 1024
-        tile_height = 1024
+        tile_width = 512
+        tile_height = 512
         
         # #TODO:
         # if not 0 < overlap_fraction < 1:
@@ -72,7 +72,7 @@ try:
         
         print("Loading model...")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path).to(device)      
+        model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path, ignore_mismatched_sizes=True).to(device)      
         processor = Mask2FormerImageProcessor()
         model.eval()
         if is_nested == False:

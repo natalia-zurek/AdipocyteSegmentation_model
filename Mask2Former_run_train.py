@@ -87,7 +87,7 @@ if __name__ == "__main__":
         
     try:
         validation_frequency = int(validation_frequency)
-        if validation_frequency <= 0:
+        if validation_frequency < 0:
             raise ValueError("Validation frequency (--valid_freq) must be a positive integer.")
     except ValueError:
         raise ValueError("Validation frequency (--valid_freq) must be an integer.")
@@ -122,12 +122,26 @@ if __name__ == "__main__":
         eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False, collate_fn=eval_collate_fn)
 
     # Initialize model & its config
-    model_name = "facebook/mask2former-swin-large-coco-instance"
-    model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True) #num_labels=len(classes)-1
-    config = Mask2FormerConfig.from_pretrained(model_name)
-    config.id2label = id2label
-    config.label2id = label2id
-    model.config = config
+    # # ========= START FINE TUNING FORM MASK2FORMER MODEL V5 ============
+    # model_name = "facebook/mask2former-swin-large-coco-instance"
+    # model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True) #num_labels=len(classes)-1
+    # config = Mask2FormerConfig.from_pretrained(model_name)
+    # config.id2label = id2label
+    # config.label2id = label2id
+    # model.config = config
+    # # ========= START FINE TUNING FORM MASK2FORMER MODEL ============
+    
+    # ========= START FINE TUNING FORM MASK2FORMER MODEL V6 ============
+    # model_name = "facebook/mask2former-swin-large-coco-instance"
+    # model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True) #num_labels=len(classes)-1
+    # ========= START FINE TUNING FORM MASK2FORMER MODEL ============
+    
+    # ========= RESUME TRAINING FROM CHECKPOINT ============
+    model_name = 'C:/_research_projects/Adipocyte model project/Mask2Former/trained models/Adipocyte_TCGA_MTC_GTEX_augx1_x20_v1/mask2former_instseg_epoch_80'
+    model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=False)
+    # ========= RESUME TRAINING FROM CHECKPOINT ============
+    
+    
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -135,7 +149,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=initial_lr)
 
     # Learning rate scheduler
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)  # Decays LR by a factor of 0.5 every 5 epochs
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)  # Decays LR by a factor of 0.5 every 15 epochs
     
     # Initialize DataFrame to store metrics
     metrics_path = os.path.join(save_checkpoints_folder, 'training_metrics.csv')
@@ -182,7 +196,7 @@ if __name__ == "__main__":
             batch_size = batch["pixel_values"].size(0)
            
 
-            if idx % 50 == 0:
+            if idx % 100 == 0:
                 print(f"  Training loss: {round(sum(train_loss) / len(train_loss), 6)}\n")
             
         train_loss = round(sum(train_loss)/len(train_loss), 6)
@@ -241,7 +255,7 @@ if __name__ == "__main__":
             
         # ========= SAVE MODEL ========== 
         if (epoch + 1) % checkpoint_frequency == 0 or epoch == (num_epochs - 1):
-            checkpoint_path = os.path.join(save_checkpoints_folder, f'mask2former_instseg_adipocyte_epoch_{epoch + 1}')
+            checkpoint_path = os.path.join(save_checkpoints_folder, f'mask2former_instseg_epoch_{epoch + 1}')
             model.save_pretrained(checkpoint_path)
             processor.save_pretrained(checkpoint_path)
             print(f"Model saved to {checkpoint_path}\n")

@@ -51,16 +51,15 @@ end
 %% IMAGE AUGMENTATION
 %random color transform + random flip + random rotation + random gauss
 %blurr
-
-main_pth = "C:\_research_projects\Adipocyte model project\Mask2Former\data\training";
+main_pth = "C:\_research_projects\Adipocyte model project\Mask2Former\data\training\";
 image_folder = fullfile(main_pth, "images");
-mask_folder = fullfile(main_pth, "masks/");
-save_folder_img = fullfile(main_pth, "augmented images");
-save_folder_mask = fullfile(main_pth, "augmented masks");
+mask_folder = fullfile(main_pth, "_data/masks/");
+save_folder_img = fullfile(main_pth, "_data/augmented images");
+save_folder_mask = fullfile(main_pth, "_data/augmented masks");
 mkdir(save_folder_img);
 mkdir(save_folder_mask);
 files = dir(image_folder);
-
+%%
 color_num = [1:5 7 12:14];
 rot_opt = {'r90'; 'r180'; 'r270'; 'none'};
 flip_opt = {'vflip'; 'hflip'; 'none'};
@@ -73,6 +72,7 @@ file_path = fullfile(files(i).folder, files(i).name);
 
 img = imread(file_path);
 mask_file_path = fullfile(mask_folder, [name '.tif']);
+
 if exist(mask_file_path, "file")
 mask = imread(mask_file_path);
 else
