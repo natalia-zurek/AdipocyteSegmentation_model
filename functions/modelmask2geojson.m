@@ -1,21 +1,21 @@
 % Model to mask
 
-folder_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\predictions\model Ov1 MTC aug 1024\omental mets intratumoral fat 20x\mat';
-output_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\predictions\model Ov1 MTC aug 1024\omental mets intratumoral fat 20x\mat\geojson';
+folder_path = 'C:\Users\wylezoln\Box\_my_projects\Kidney project\NataliaZ\ATmask';
+output_path = 'C:\Users\wylezoln\Box\_my_projects\Kidney project\NataliaZ\geojson';
 
 mkdir(output_path);
 files = dir(fullfile(folder_path, '*.mat'));
 %%
-for i = [1:3 5 11 14 25 28]%1:size(files, 1)
+for i = 1%:size(files, 1)
     file_path = fullfile(files(i).folder, files(i).name);
     [~,name,~] = fileparts(file_path);
 
-    load(file_path, 'inst_map');
-    idx = unique(inst_map);
-    inst_map(inst_map == 0) = idx(end)+1;
-    inst_map(inst_map == -1) = 0;
+    load(file_path, 'ATmask');
+    idx = unique(ATmask);
+    % AT_mask(AT_mask == 0) = idx(end)+1;
+    % AT_mask(AT_mask == -1) = 0;
     %instance_mask = maskstack2instancemask(masks);
-    FC = instancemask2geojson(inst_map);
+    FC = classmask2geojson(ATmask);
 
     fileID = fopen(fullfile(output_path, [name '.geojson']),'w');
     fwrite(fileID,jsonencode(FC, 'PrettyPrint',true));

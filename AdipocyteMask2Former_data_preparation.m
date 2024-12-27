@@ -1,8 +1,8 @@
 % ========= PREPARE DATASET FOR MASK2FORMER ========== 
-org_img_path = "C:\_research_projects\Adipocyte model project\Original data\images\images Unet original";
-org_mask_path = "C:\_research_projects\Adipocyte model project\Original data\masks\masks unet original";
-out_folder_img = "C:\_research_projects\Adipocyte model project\Mask2Former\data\AL\images";
-out_folder_mask = "C:\_research_projects\Adipocyte model project\Mask2Former\data\AL\masks";
+org_img_path = "C:\_research_projects\Adipocyte model project\Original data\images\images student project";
+org_mask_path = "C:\_research_projects\Adipocyte model project\Original data\masks\masks student project";
+out_folder_img = "C:\_research_projects\Adipocyte model project\Original data\images\images student project 1024";
+out_folder_mask = "C:\_research_projects\Adipocyte model project\Original data\masks\masks student project 1024";
 mkdir(out_folder_img)
 mkdir(out_folder_mask)
 %% change pixel size of the images
@@ -17,22 +17,22 @@ for i = 1:size(files, 1)
     img = imread(file_path);
     class_map = imread(mask_path_full);
     
-    new_img = imresize(imresize(img, 0.393, "bilinear"), [1024, 1024], "bilinear");
-    new_mask = imresize(imresize(class_map, 0.393, "nearest"), [1024, 1024],"nearest");
+    new_img = imresize(img, [1024, 1024], "bilinear");
+    new_mask = imresize(class_map, [1024, 1024],"nearest");
     
-    imwrite(new_mask, [0 0 0; 1 0 0], fullfile(out_folder_mask, [name '.png']));
-    imwrite(new_img, fullfile(out_folder_img, [name '.png']))
+    imwrite(new_mask, [0 0 0; 1 0 0], fullfile(out_folder_mask, [name '.tif']));
+    imwrite(new_img, fullfile(out_folder_img, [name '.tif']))
 
 end
 
 %% save data into mask2former format
 %% ======= PRZETESTOWAC CZY TEN KOD DZIALA Z USUWANIEM MALYCH OBIEKTOW!!!!!11 =========
 main_pth = "C:\_research_projects\Adipocyte model project\Original data";
-images_path = fullfile(main_pth, "images/images MTC2");
+images_path = fullfile(main_pth, "images/images TCGA 1024/");
 out_folder = fullfile(main_pth, "images without mask")';
-overlay_path = fullfile(main_pth, "mask overlay")';
-mask_path = fullfile(main_pth, "masks/masks MTC2");
-save_path = fullfile(main_pth, "annotations/annotations MTC2");
+overlay_path = fullfile(main_pth, "masks/masks TCGA 1024/mask overlay")';
+mask_path = fullfile(main_pth, "masks/masks TCGA 1024/");
+save_path = fullfile(main_pth, "annotations/annotations TCGA 1024");
 
 % % main_pth = "C:\_research_projects\Adipocyte model project\Mask2Former\data\training\_data";
 % % images_path = fullfile(main_pth, "augmented images");
@@ -41,11 +41,11 @@ save_path = fullfile(main_pth, "annotations/annotations MTC2");
 % % save_path = fullfile(main_pth, "augmented annotations");
 
 %mkdir(out_folder)
-%mkdir(overlay_path);
+mkdir(overlay_path);
 mkdir(save_path)
 
 min_area_threshold = 10;
-save_overlay = 0;
+save_overlay = 1;
 save_dataset = 1;
 
 files = [dir(fullfile(images_path, '*.tif')); dir(fullfile(images_path, '*.jpg')); dir(fullfile(images_path, '*.png'))];
@@ -55,7 +55,7 @@ for i = 1:size(files, 1)
     [~,name,ext] = fileparts(file_path);
     imageName = [name ext];
     
-    mask_path_full = fullfile(mask_path, [name '.tif']);
+    mask_path_full = fullfile(mask_path, [name '.png']);
     % if ~isfile(mask_path_full)
     %     disp(['Mask ' name '.png doesnt exist'])
     %     status = movefile(file_path, out_folder);
@@ -78,7 +78,7 @@ for i = 1:size(files, 1)
 
     if save_overlay
     ov = labeloverlay(img, inst_map, "Transparency", 0.6);
-    imwrite(ov, fullfile(overlay_path, [name '.png']))
+    imwrite(ov, fullfile(overlay_path, [name '.tif']))
     end
 
     if save_dataset

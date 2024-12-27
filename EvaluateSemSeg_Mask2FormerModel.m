@@ -1,96 +1,82 @@
-pred_datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\predictions\model Ov1 MTC aug 512 no_glands\abdominal laparoscopy 10x\masks';
-%gnd_datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\test dataset\omental mets part 2\masks';
-gnd_datastore_path = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\test dataset\abdominal_laparoscopy\masks 10x';
+% to evaluate semantic segmentation use annotation folder as gnd truth
 
-output_path = fullfile(pred_datastore_path, 'binary mask');
-mkdir(output_path);
-files = [dir(fullfile(pred_datastore_path, '*.jpg')); dir(fullfile(pred_datastore_path, '*.png'))];
-%%
-for i = 1:size(files, 1)%i = [1:9 13:19 76:91 94:100]
-    file_path = fullfile(files(i).folder, files(i).name);
-    [~,name,~] = fileparts(file_path);
-    mask = imread(file_path);
-    mask = imbinarize(mask);
-    %mask = imresize(mask, [512 512], "nearest");
-    imwrite(mask, fullfile(output_path, [name '.tif']));
-end
-%%
-classNames = {'Adipocyte'};
-pixelLabelIDs = 1;
+pred_datastore_path = 'C:\_research_projects\Adipocyte model project\Mask2Former_v1\predictions\model Ov1 MTC aug 1024\student project 1024 normal infer\mat';
+gnd_datastore_path = 'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations student project 1024';
+save_pth = 'C:\_research_projects\Adipocyte model project\Mask2Former_v1\evaluation\model Ov1 MTC aug 1024\semantic seg';
+name = 'Ov1 MTC aug 1024_student_project';
 
-dsPred = pixelLabelDatastore(output_path,classNames,pixelLabelIDs);
-dsGND = pixelLabelDatastore(gnd_datastore_path,classNames,pixelLabelIDs);
+dsPred = fileDatastore(pred_datastore_path, ...
+    ReadFcn=@(x)predDataReaderSemseg(x));
+
+dsGND = fileDatastore(gnd_datastore_path, ...
+    ReadFcn=@(x)gndDataReaderSemseg(x));
+
+classNames = ["background", "adipocyte"];
+labelIDs = [0, 1];
+
 tic
-metrics = evaluateSemanticSegmentation(dsPred,dsGND, "Verbose",true);
+metrics = evaluateSemanticSegmentation(dsPred,dsGND);
 t = toc/60
+ds_metric = [metrics.DataSetMetrics; metrics.DataSetMetrics];
+ds_metric.Properties.VariableNames{5} = 'MeanBFScoreDS';
+T = [ds_metric, metrics.NormalizedConfusionMatrix, metrics.ClassMetrics];
+writetable(T, fullfile(save_pth, [name '.xlsx']), "WriteRowNames",true);
+save(fullfile(save_pth, [name '.mat']),'metrics')
 %%
-save_pth = 'C:\Ovarian cancer project\Adipocyte dataset\Mask2Former\evaluation';
-save(fullfile(save_pth, 'evaluation_model_Ov1_MTC_aug_1024_intratumoral_fat_abdominal_laparoscopty_semseg.mat'),'metrics')
-%% ROC Curve
-precision = metrics.ClassMetrics.Precision{1,1}(1:end);
-recall = metrics.ClassMetrics.Recall{1,1}(1:end);
+% test = predDataReaderSemseg(dsPred.Files{256, 1});
+% test2 = gndDataReaderSemseg(dsGND.Files{256, 1});
+%% COMBINED DATASET
+save_pth = 'C:\_research_projects\Adipocyte model project\Mask2Former_v1\evaluation\model Ov1 MTC aug 1024\semantic seg';
 
-[sorted_recall, sortOrder] = sort(recall);
-    
-    % Sort vectorB using the same sorting order as vectorA
-    sorted_precision = precision(sortOrder);
+pred_datastore_paths = {'C:\_research_projects\Adipocyte model project\Mask2Former_v1\predictions\model Ov1 MTC aug 1024\images GTEX 1024 normal infer\mat';...
+    'C:\_research_projects\Adipocyte model project\Mask2Former_v1\predictions\model Ov1 MTC aug 1024\images TCGA 1024 normal infer\mat';...
+    'C:\_research_projects\Adipocyte model project\Mask2Former_v1\predictions\model Ov1 MTC aug 1024\student project 1024 normal infer\mat'};
 
-plot(sorted_recall, sorted_precision)
-title("ROC glands model x20")
-ylabel("Recall")
-xlabel("Precision")
+gnd_datastore_paths = {'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations unet GTEX 1024';...
+    'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations TCGA 1024';...
+    'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations student project 1024'};
+
+
+dsPred2 = fileDatastore(pred_datastore_paths, ...
+    ReadFcn=@(x)predDataReaderSemseg(x), FileExtensions='.mat');
+
+dsGND2 = fileDatastore(gnd_datastore_paths, ...
+    ReadFcn=@(x)gndDataReaderSemseg(x), FileExtensions='.mat');
+
+tic
+metrics = evaluateSemanticSegmentation(dsPred2,dsGND2, "Verbose",true);
+t = toc/60
+
+name = 'Ov1 MTC aug 1024_SP_TCGA_GTEX_combined';
+ds_metric = [metrics.DataSetMetrics; metrics.DataSetMetrics];
+ds_metric.Properties.VariableNames{5} = 'MeanBFScoreDS';
+T = [ds_metric, metrics.NormalizedConfusionMatrix, metrics.ClassMetrics];
+writetable(T, fullfile(save_pth, [name '.xlsx']), "WriteRowNames",true);
+save(fullfile(save_pth, [name '.mat']),'metrics')
 %%
-function out = predDataReader(data_path)
-
+function out = predDataReaderSemseg(data_path)
+classNames = ["background", "adipocyte"];
+labelIDs = [0, 1];
 load(data_path)
-if isempty(inst_id)
-inst_map(inst_map == -1) = 0;
-out{1} = logical(inst_map);
-out{2} = categorical(repmat({'Adipocyte'}, 1, 1));
-out{3} = 1;
 
+if isempty(inst_ids)
+inst_map(inst_map == -1) = 0;
+out = categorical(inst_map,labelIDs,classNames);
 else
-inst_map(inst_map == 0) = inst_id(end)+1;
+inst_map(inst_map == 0) = inst_ids(end)+1;
 inst_map(inst_map == -1) = 0;
-inst_id(inst_id == 0) = inst_id(end)+1;
-[inst_id, exists_in_map ] = clean_ids(inst_map, inst_id);
-
-mask = instancemask2maskstack(inst_map);
-out{1} = mask;
-
-N=size(inst_id, 1);
-class_vector = categorical(repmat({'Adipocyte'}, N, 1));
-out{2} = class_vector;
-
-
-inst_scores(exists_in_map == 0) = [];
-out{3} = inst_scores;
-end
-end
-
-function out = gndDataReader(data_path)
-
-class_map = imread(data_path);
-inst_map = bwlabel(class_map, 4);
-inst_maskstack = instancemask2maskstack(inst_map);
-out{1} = inst_maskstack;
-
-ids = unique(inst_map);
-ids(ids == 0) = [];
-N=size(ids, 1);
-class_vector = categorical(repmat({'Adipocyte'}, N, 1));
-out{2} = class_vector;
+inst_map(inst_map > 0) = 1;
+out = categorical(inst_map,labelIDs,classNames);
 
 end
 
-function [inst_id, exists_in_map ]= clean_ids(inst_map, inst_id)
+end
 
-map_ids = unique(inst_map);
-map_ids(map_ids == 0) = [];
-
-exists_in_map = ismember(inst_id, int32(map_ids));
-
-% Remove elements from vector B that are not in vector A
-inst_id(exists_in_map == 0) = [];
+function out = gndDataReaderSemseg(data_path)
+classNames = ["background", "adipocyte"];
+labelIDs = [0, 1];
+load(data_path)
+out = categorical(class_map,labelIDs,classNames);
 
 end
+

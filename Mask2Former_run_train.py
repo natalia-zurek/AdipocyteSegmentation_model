@@ -106,12 +106,12 @@ if __name__ == "__main__":
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomRotate90(always_apply=False, p=0.5),
+        #A.Resize(512, 512, interpolation=INTER_CUBIC, always_apply=TRUE)
     ])
-
     #Note: Instance segmentation dataset labels start from 1 while 0 is reserved for the null / background class to be ignored.
-    processor = Mask2FormerImageProcessor(reduce_labels=True, ignore_index=255, do_resize=False, do_rescale=False, do_normalize=False)
-    #train_dataset = ImageSegmentationDataset(train_dataset_path, processor, train_transform)  # With augmentation
-    train_dataset = ImageSegmentationDataset(train_dataset_path, processor, None)  # No augmentation
+    processor = Mask2FormerImageProcessor(reduce_labels=True, ignore_index=0, do_resize=False, do_rescale=False, do_normalize=False)
+    train_dataset = ImageSegmentationDataset(train_dataset_path, processor, train_transform)  # With augmentation
+    #train_dataset = ImageSegmentationDataset(train_dataset_path, processor, None)  # No augmentation
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     
     if validation_frequency != 0:
@@ -132,17 +132,16 @@ if __name__ == "__main__":
     # # ========= START FINE TUNING FORM MASK2FORMER MODEL ============
     
     # ========= START FINE TUNING FORM MASK2FORMER MODEL V6 ============
-    # model_name = "facebook/mask2former-swin-large-coco-instance"
-    # model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True) #num_labels=len(classes)-1
+    model_name = "facebook/mask2former-swin-large-coco-instance"
+    model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True) #num_labels=len(classes)-1
     # ========= START FINE TUNING FORM MASK2FORMER MODEL ============
     
     # ========= RESUME TRAINING FROM CHECKPOINT ============
-    model_name = 'C:/_research_projects/Adipocyte model project/Mask2Former/trained models/Adipocyte_TCGA_MTC_GTEX_augx1_x20_v1/mask2former_instseg_epoch_80'
-    model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=False)
+    # model_name = 'C:/_research_projects/Adipocyte model project/Mask2Former/trained models/Adipocyte_TCGA_MTC_GTEX_augx1_x20_v1/mask2former_instseg_epoch_80'
+    # model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=False)
     # ========= RESUME TRAINING FROM CHECKPOINT ============
     
-    
-    
+       
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
@@ -155,7 +154,7 @@ if __name__ == "__main__":
     metrics_path = os.path.join(save_checkpoints_folder, 'training_metrics.csv')
     with open(metrics_path, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["Epoch", "Train Loss", "Validation Loss", "Learning Rate"])
+        writer.writerow(["Epoch", "Train Loss", "Validation Loss", "Learning Rate", "Epoch training time (s)"])
 
     # Initialize DF to store evaluation metrics
     if validation_frequency != 0:
@@ -196,8 +195,8 @@ if __name__ == "__main__":
             batch_size = batch["pixel_values"].size(0)
            
 
-            if idx % 100 == 0:
-                print(f"  Training loss: {round(sum(train_loss) / len(train_loss), 6)}\n")
+            # if idx % 100 == 0:
+                # print(f"  Training loss: {round(sum(train_loss) / len(train_loss), 6)}\n")
             
         train_loss = round(sum(train_loss)/len(train_loss), 6)
         optimizer.step()
@@ -229,8 +228,8 @@ if __name__ == "__main__":
                     # Get validation loss
                     loss = outputs.loss
                     val_loss.append(loss.item())
-                    if idx % 50 == 0:
-                        print(f"  Validation loss: {round(sum(val_loss) / len(val_loss), 6)}\n")
+                    # if idx % 50 == 0:
+                    #     print(f"  Validation loss: {round(sum(val_loss) / len(val_loss), 6)}\n")
                         
             # Average validation epoch loss
             val_loss = round(sum(val_loss)/len(val_loss), 6)
@@ -244,12 +243,12 @@ if __name__ == "__main__":
                       
             with open(metrics_path, mode='a', newline='') as file:
                 writer = csv.writer(file)       
-                writer.writerow([epoch + 1, train_loss, val_loss, current_lr])
+                writer.writerow([epoch + 1, train_loss, val_loss, current_lr, train_time])
         
         else:
             with open(metrics_path, mode='a', newline='') as file:
                 writer = csv.writer(file)       
-                writer.writerow([epoch + 1, train_loss, 0, current_lr])
+                writer.writerow([epoch + 1, train_loss, 0, current_lr, train_time])
                 
             print(f"Epoch {epoch + 1} | train_loss: {train_loss} | learning_rate: {current_lr}\n")
             

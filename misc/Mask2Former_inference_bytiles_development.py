@@ -622,3 +622,70 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path).to(device)      
 processor = Mask2FormerImageProcessor()
 model.eval()
+
+
+#%% MAIN
+#LIBRARIES
+import sys
+sys.path.append('C:\_research_projects\Adipocyte model project\AdipocyteSegmentation_model')
+from transformers import Mask2FormerImageProcessor
+import torch
+import os
+from transformers import Mask2FormerForUniversalSegmentation
+from models.inference import run_inference
+
+
+#FUNCTIONS
+
+# Function to check if path exists
+def check_path_existence(path):
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"The path '{path}' does not exist.")
+
+model_path = "C:/_research_projects/Adipocyte model project/Mask2Former_v1/trained models/model Ov1 MTC aug 1024/mask2former_adipocyte_test_epoch_80"
+image_path = "C:/_research_projects/Adipocyte model project/Original data/images/images student project 1024"
+save_path = "C:/_research_projects/Adipocyte model project/Mask2Former_v1/predictions/images student project x20 normal infer thr=0.7 ov=0.3"
+is_nested = False
+
+tile_width = 512
+tile_height = 512
+
+# #TODO:
+# if not 0 < overlap_fraction < 1:
+#     pass#raise OverlapFractionError("Overlap fraction must be within the range (0, 1).")
+
+try:        
+    check_path_existence(model_path)
+    check_path_existence(image_path)
+except FileNotFoundError as e:
+    print(f"Error: {e}")
+    
+if not os.path.exists(save_path):
+    os.makedirs(save_path, exist_ok = True)  
+
+print("Loading model...")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = Mask2FormerForUniversalSegmentation.from_pretrained(model_path, ignore_mismatched_sizes=True).to(device)      
+processor = Mask2FormerImageProcessor()
+model.eval()
+if is_nested == False:
+    
+    run_inference(device, model, processor, image_path, save_path, tile_width, tile_height)
+
+else:
+    
+    print("Finding nested directories...")
+    directories = os.listdir(image_path)
+    if len(directories) == 0:
+        print(f'No directories in {image_path}')
+    
+    for directory in directories:
+        save_path_directory = os.path.join(save_path, directory)
+        image_path_directory = os.path.join(image_path, directory)
+        
+        run_inference(device, model, image_path_directory, save_path_directory, tile_width, tile_height)
+        
+            
+
+
+

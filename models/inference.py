@@ -14,6 +14,8 @@ from tqdm.auto import tqdm
 import scipy.io as sio
 import copy
 from PIL import Image
+from utils.visualization import overlay
+
 
 def postprocess_results(results):
     """
@@ -613,7 +615,7 @@ def run_inference(device, model, processor, image_path, save_path, tile_width, t
     os.makedirs(os.path.join(save_path, 'overlays'), exist_ok = True)
     os.makedirs(os.path.join(save_path, 'masks'), exist_ok = True)
     os.makedirs(os.path.join(save_path, 'mat'), exist_ok = True)
-    
+    target_size = (tile_width, tile_height)
     image_list = os.listdir(image_path)
     if not image_list:
         print(f"No images found in the directory: {image_path}.")
@@ -631,7 +633,7 @@ def run_inference(device, model, processor, image_path, save_path, tile_width, t
             original_image = np.array(image)
             final_overlay = np.zeros_like(original_image)
                             
-            tiles, positions, num_rows, num_cols, overlaps = divide_image_into_tiles(image, tile_width, tile_height)
+            tiles, positions, num_rows, num_cols, overlaps = divide_image_into_tiles(image, tile_width, tile_height, overlap=0.45)
 
             inference_results = []
 
@@ -640,7 +642,7 @@ def run_inference(device, model, processor, image_path, save_path, tile_width, t
 
                 with torch.no_grad():
                     outputs = model(**inputs)
-                results = processor.post_process_instance_segmentation(outputs)[0]
+                results = processor.post_process_instance_segmentation(outputs, target_sizes=[target_size], threshold=0.7)[0]
                 inference_results.append(results)               
             
             mask_rows = []
@@ -648,6 +650,7 @@ def run_inference(device, model, processor, image_path, save_path, tile_width, t
             combined_rows_scores = []
             combined_rows_classes = []
             combined_info_idx = 0
+            
             for i in range(0, num_rows*num_cols):
                 if (i+1) % num_cols == 0:
                     mask_rows.append(left_mask)
@@ -701,28 +704,21 @@ def run_inference(device, model, processor, image_path, save_path, tile_width, t
                 
                 top_mask, top_scores, top_classes, top_inst_ids = combine_masks_vertically(top_mask, top_scores, top_classes, top_inst_ids, bottom_mask, bottom_scores, bottom_classes, bottom_inst_ids, overlaps_rows[i+1][1])
             
+            colors = np.random.randint(0, 255, size=(len(top_inst_ids), 3), dtype=np.uint8)
+            result_image = np.transpose(original_image.copy(), (2, 0, 1))
             # Iterate over the segments and visualize each mask on top of the original image
-            for inst_id in top_inst_ids:
-                # Get mask for specific instance
-                mask = get_mask(top_mask, inst_id)
-
-                # Resize mask if necessary
-                mask_array = np.array(mask)
-                if mask_array.shape != original_image.shape[:2]:
-                    mask_array = np.array(mask.resize((original_image.shape[1], original_image.shape[0])))
-
-                # Find where the mask is
-                mask_location = mask_array == 255
-
-                # Set the mask area to a specific color
-                red_channel = final_overlay[:,:,2]
-                red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
-                final_overlay[:,:,0] = red_channel
+            for i, inst_id in enumerate(top_inst_ids):
+                mask_temp = np.array(get_mask(top_mask, inst_id))
+                # print(top_mask.shape)
+                # print(original_image.shape)
+                color = colors[i]
+                result_image = overlay(result_image, mask_temp, color, 0.7, resize=None)
+                    
                 
-            # After accumulating all masks, blend final overlay with original image    
-            blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
+            ov_img = np.transpose(result_image, (1, 2, 0))
+            
             #save overlay
-            cv2.imwrite(os.path.join(save_path, 'overlays', image_name),  cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
+            cv2.imwrite(os.path.join(save_path, 'overlays', image_name),  cv2.cvtColor(ov_img, cv2.COLOR_RGB2BGR))
             #blended.save(os.path.join(save_path, 'overlays', image_name))
             #save mask
             cv2.imwrite(os.path.join(save_path, 'masks', image_name), top_mask.astype(np.float16))        
@@ -731,4 +727,36 @@ def run_inference(device, model, processor, image_path, save_path, tile_width, t
             mat_dict = {
                 "inst_map" : top_mask, "inst_scores" : top_scores, "inst_ids" : top_inst_ids, "inst_types" : top_classes}
             sio.savemat(os.path.join(save_path, 'mat', mat_name), mat_dict)
-            #print(f'{image_name}... done') #this or tqdm, not both
+            
+               # ========= OLD SAVING WAY ========== 
+            # for inst_id in enumerate(top_inst_ids):
+            #    # Get mask for specific instance
+            #     mask = get_mask(top_mask, inst_id)
+
+            #     # Resize mask if necessary
+            #     mask_array = np.array(mask)
+            #     if mask_array.shape != original_image.shape[:2]:
+            #         mask_array = np.array(mask.resize((original_image.shape[1], original_image.shape[0])))
+
+            #     # Find where the mask is
+            #     mask_location = mask_array == 255
+
+            #     # Set the mask area to a specific color
+            #     red_channel = final_overlay[:,:,2]
+            #     red_channel[mask_location] = 255  # you may want to ensure that this does not overwrite previous masks
+            #     final_overlay[:,:,0] = red_channel
+                
+            # # After accumulating all masks, blend final overlay with original image    
+            # blended = np.where(final_overlay != [0, 0, 0], final_overlay, original_image * 0.5).astype(np.uint8)
+            # #save overlay
+            # cv2.imwrite(os.path.join(save_path, 'overlays', image_name),  cv2.cvtColor(blended, cv2.COLOR_RGB2BGR))
+            # #blended.save(os.path.join(save_path, 'overlays', image_name))
+            # #save mask
+            # cv2.imwrite(os.path.join(save_path, 'masks', image_name), top_mask.astype(np.float16))        
+            # basename = os.path.splitext(os.path.basename(image_name))[0]
+            # mat_name = f"{basename}.mat"
+            # mat_dict = {
+            #     "inst_map" : top_mask, "inst_scores" : top_scores, "inst_ids" : top_inst_ids, "inst_types" : top_classes}
+            # sio.savemat(os.path.join(save_path, 'mat', mat_name), mat_dict)
+            # #print(f'{image_name}... done') #this or tqdm, not both
+           

@@ -1,4 +1,4 @@
-function FC = instancemask2geojson(instance_mask)
+function FC = classmask2geojson(instance_mask)
 %UNTITLED7 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -6,11 +6,16 @@ idx = unique(instance_mask);
 idx(idx == 0) = [];
 P = cell(length(idx),1);
 
+k=1;
 for i = 1:length(idx)
     bw_mask = zeros(size(instance_mask));
     bw_mask(instance_mask == idx(i)) = 1;
     B = bwboundaries(bw_mask, 4);  
-    P{i,1} = [B{1}(:,2)-1, B{1}(:,1)-1];
+    for j = 1:size(B, 1)
+        P{k,1} = [B{j}(:,2)-1, B{j}(:,1)-1];
+        k = k+1;
+    end
+    
 
 end
 keepIndex = cellfun(@(x) size(x, 1) > 3, P);

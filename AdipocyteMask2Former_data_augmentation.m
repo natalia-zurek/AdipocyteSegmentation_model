@@ -93,7 +93,36 @@ imwrite(mask_aug, [0 0 0; 1 0 0], fullfile(save_folder_mask, [name '_aug.tif']))
 
 end
 
- 
+%% random color augmentation
+main_pth = "C:\_research_projects\Adipocyte model project\Mask2Former\data\training";
+img_folder = fullfile(main_pth, "images");
+ann_folder = fullfile(main_pth, "annotations");
+
+save_folder_img = fullfile(main_pth, "_data/augmented images");
+save_folder_ann = fullfile(main_pth, "_data/augmented ann");
+mkdir(save_folder_img);
+mkdir(save_folder_ann);
+
+color_num = [1:5 7 12:14];
+
+files = dir(fullfile(img_folder, '*.tif'));
+%%
+for i = 1:size(files, 1)
+    [~, name, ~] = fileparts(files(i).name);
+    img = imread(fullfile(files(i).folder, files(i).name));
+    load(fullfile(ann_folder, [name '.mat']));
+    k = 1;
+    for f = color_num(randperm(numel(color_num), 3))
+        
+        rImg = colorTransform(img, 'CS', f, 'none');
+        
+        imwrite(rImg, fullfile(save_folder_img, [name '_aug' num2str(k) '.tif']))
+        save(fullfile(save_folder_ann, [name '_aug' num2str(k) '.mat']),'class_map', 'inst_map')
+        k=k+1;
+    end
+end
+
+
 % for i = 3%:size(files, 1)
 %     file_path = fullfile(files(i).folder, files(i).name);
 %     [~,name,~] = fileparts(file_path);

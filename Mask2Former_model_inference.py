@@ -90,7 +90,7 @@ try:
                 save_path_directory = os.path.join(save_path, directory)
                 image_path_directory = os.path.join(image_path, directory)
                 
-                run_inference(device, model, image_path_directory, save_path_directory, tile_width, tile_height)
+                run_inference(device, model, processor, image_path_directory, save_path_directory, tile_width, tile_height)
             
 
     while True:
