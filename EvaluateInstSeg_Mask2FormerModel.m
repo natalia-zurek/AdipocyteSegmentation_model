@@ -77,9 +77,95 @@ metrics = evaluateInstanceSegmentation(dsPred,dsGND, 0.5, "Verbose",true);
 t = toc/60
 
 save(fullfile(save_pth, 'Ov1 MTC aug 1024_SP_TCGA_GTEX_combined.mat'),'metrics')
+%% evaluate postprocessed
+save_pth = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed/evaluation/instance seg';
+mkdir(save_pth);
+
+pred_datastore_path = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed\GTEX 1024\mat';
+gnd_datastore_path = 'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations unet GTEX 1024';
+dsPred = fileDatastore(pred_datastore_path, ...
+    ReadFcn=@(x)predDataReader_postproc(x));
+
+dsGND = fileDatastore(gnd_datastore_path, ...
+    ReadFcn=@(x)gndDataReader2(x));
+tic
+metrics = evaluateInstanceSegmentation(dsPred,dsGND, 0.5, "Verbose",true);
+t = toc/60
 
 
+save(fullfile(save_pth, 'Ov1 MTC aug 1024_GTEX.mat'),'metrics')
+
+pred_datastore_path = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed\TCGA 1024\mat';
+gnd_datastore_path = 'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations TCGA 1024';
+dsPred = fileDatastore(pred_datastore_path, ...
+    ReadFcn=@(x)predDataReader_postproc(x));
+
+dsGND = fileDatastore(gnd_datastore_path, ...
+    ReadFcn=@(x)gndDataReader2(x));
+tic
+metrics = evaluateInstanceSegmentation(dsPred,dsGND, 0.5, "Verbose",true);
+t = toc/60
+
+save(fullfile(save_pth, 'Ov1 MTC aug 1024_TCGA.mat'),'metrics')
+
+pred_datastore_path = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed\student project 1024\mat';
+gnd_datastore_path = 'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations student project 1024';
+dsPred = fileDatastore(pred_datastore_path, ...
+    ReadFcn=@(x)predDataReader_postproc(x));
+
+dsGND = fileDatastore(gnd_datastore_path, ...
+    ReadFcn=@(x)gndDataReader2(x));
+tic
+metrics = evaluateInstanceSegmentation(dsPred,dsGND, 0.5, "Verbose",true);
+t = toc/60
+
+save(fullfile(save_pth, 'Ov1 MTC aug 1024_student_project_1024.mat'),'metrics')
+%% combined postprocessed
+save_pth = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed\evaluation\instance seg';
+pred_datastore_paths = {'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed\GTEX 1024\mat';...
+    'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed\TCGA 1024\mat';...
+    'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed\student project 1024\mat'};
+
+gnd_datastore_paths = {'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations unet GTEX 1024';...
+    'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations TCGA 1024';...
+    'C:\_research_projects\Adipocyte model project\Original data\annotations\annotations student project 1024'};
+
+dsPred = fileDatastore(pred_datastore_paths, ...
+    ReadFcn=@(x)predDataReader_postproc(x));
+
+dsGND = fileDatastore(gnd_datastore_paths, ...
+    ReadFcn=@(x)gndDataReader2(x));
+tic
+metrics = evaluateInstanceSegmentation(dsPred,dsGND, 0.5, "Verbose",true);
+t = toc/60
+save(fullfile(save_pth, 'Ov1 MTC aug 1024_SP_TCGA_GTEX_combined.mat'),'metrics')
 %%
+test = predDataReader_postproc(dsPred.Files{1, 1});
+%%
+function out = predDataReader_postproc(data_path)
+
+load(data_path)
+
+if isempty(inst_ids)
+    out{1} = logical(inst_map);
+    out{2} = categorical(repmat({'Adipocyte'}, 1, 1));
+    out{3} = 1;
+else
+    [inst_ids, exists_in_map ] = clean_ids(inst_map, inst_ids);
+
+    mask = instancemask2maskstack(inst_map);
+    out{1} = mask;
+
+    N=size(inst_ids, 2);
+    class_vector = categorical(repmat({'Adipocyte'}, N, 1));
+    out{2} = class_vector;
+
+    inst_scores(exists_in_map == 0) = [];
+    out{3} = inst_scores';
+end
+end
+
+
 function out = predDataReader(data_path)
 
 load(data_path)

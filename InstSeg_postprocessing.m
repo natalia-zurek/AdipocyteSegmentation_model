@@ -1,13 +1,13 @@
 %% non nested
-main_pth = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former raw';
-folder_path = fullfile(main_pth, 'images TCGA 1024 normal infer\mat');
+main_pth = 'D:\QuPath projects\fat annotations\Project FAT Omental Mets strict ROIs\M2F raw';
+folder_path = fullfile(main_pth, '16016\mat');
 
-img_folder = 'C:\_research_projects\Adipocyte model project\Original data\images\images TCGA 1024';
-output_path = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed\TCGA 1024';
+img_folder = 'D:\QuPath projects\fat annotations\Project FAT Omental Mets strict ROIs\tiles fat wsi 1024 0.9\16016';
+output_path = 'D:\QuPath projects\fat annotations\Project FAT Omental Mets strict ROIs\M2F post';
 mkdir(output_path);
 post_proc = 1;
-%%
 files = dir(fullfile(folder_path, '*.mat'));
+%%
 output_dir = fullfile(output_path, 'mat');
 mkdir(output_dir)
 output_dir2 = fullfile(output_path, 'masks');
@@ -33,15 +33,18 @@ for i = 1:size(files, 1)
         imwrite(ov, fullfile(output_dir3, [name '.png']));
 end
 %% nested
-folder_path = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Omental Mets\Mask2Former\Mask2Former raw\predictions';
-img_folder = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Omental Mets\tiles fat wsi 1024 0.3';
-output_path = fullfile('C:\_research_projects\Adipocyte model project\Adipocyte analysis\Omental Mets\Mask2Former\Mask2Former postprocessed\predictions');
+main_pth = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\PLCO\';
+folder_path = fullfile(main_pth, 'PLCO Mask2Former raw');
+
+img_folder = fullfile(main_pth,"PLCO tiles 1024/");
+output_path = fullfile(main_pth, "PLCO Mask2Former postproc/");
+
 mkdir(output_path);
 post_proc = 1;
 folders = dir(folder_path);
 %%
 h = waitbar(0, 'Instance segmentation postprocessing...');
-for i = 3:size(folders,1)
+for i = 36:size(folders,1)
     waitbar(i/size(folders, 1), h, sprintf('Analyzing: %d / %d', i, size(folders, 1)));
     folder = folders(i);
     if folder.isdir && ~strcmp(folder.name, '.') && ~strcmp(folder.name, '..')
@@ -57,8 +60,11 @@ for i = 3:size(folders,1)
             file = files(j);
             load(fullfile(file.folder, file.name));
             [~,name,~] = fileparts(file.name);
+            if isempty(inst_ids)
+            inst_map(inst_map == -1) = 0;
+            else
             [inst_map, inst_types, inst_ids, inst_scores] = python2matlab_instseg(inst_map, 'inst_types', inst_types, 'inst_ids', inst_ids, 'inst_scores', inst_scores);
-
+            end
 
             inst_map = postproc_inst_seg(inst_map);
             I = imread(fullfile(img_folder, folder.name, [name '.tif']));
