@@ -122,18 +122,18 @@ if __name__ == "__main__":
         eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False, collate_fn=eval_collate_fn)
 
     # Initialize model & its config
-    # # ========= START FINE TUNING FORM MASK2FORMER MODEL V5 ============
-    # model_name = "facebook/mask2former-swin-large-coco-instance"
-    # model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True) #num_labels=len(classes)-1
-    # config = Mask2FormerConfig.from_pretrained(model_name)
-    # config.id2label = id2label
-    # config.label2id = label2id
-    # model.config = config
+    # # ========= START FINE TUNING FORM MASK2FORMER COCO MODEL ============
+    model_name = "facebook/mask2former-swin-large-coco-instance"
+    model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True) #num_labels=len(classes)-1
+    config = Mask2FormerConfig.from_pretrained(model_name)
+    config.id2label = id2label
+    config.label2id = label2id
+    model.config = config
     # # ========= START FINE TUNING FORM MASK2FORMER MODEL ============
     
     # ========= START FINE TUNING FORM MASK2FORMER MODEL V6 ============
-    model_name = "facebook/mask2former-swin-large-coco-instance"
-    model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True) #num_labels=len(classes)-1
+    # model_name = "facebook/mask2former-swin-large-coco-instance"
+    # model = Mask2FormerForUniversalSegmentation.from_pretrained(model_name, ignore_mismatched_sizes=True) #num_labels=len(classes)-1
     # ========= START FINE TUNING FORM MASK2FORMER MODEL ============
     
     # ========= RESUME TRAINING FROM CHECKPOINT ============

@@ -1,3 +1,15 @@
+%%DDW2025
+data = readtable("C:/_research_projects/Immune infiltrate project/DDW2025/data/PC_immune_activity_POR.csv", 'VariableNamingRule','preserve');
+data(data.Surgery_No ~= 1, :) = [];
+time = 'Time2rec_or_fwup_WITH_i2ab';
+event = 'Any_rec_WITH_i2ab_6mo';
+cut_point = 'Median'; 
+preds = {'Density_lymph_MSC'; 'granule_area_50'};
+KM_save = 'C:/_research_projects/Immune infiltrate project/DDW2025';
+filename_excel = 'KM.xlsx';
+kmplotter_workflow(data, preds, time, event, filename_excel, KM_save, cut_point)
+%%
+kmplotter_workflow_best_quartile(data, preds, time, event, 'KM_best.xlsx', fullfile(KM_save, 'KM best'));
 %% OVARIAN CANCER
 addpath(genpath('C:\_research_projects\Immune infiltrate project\immune infiltrate\Immune-infiltrate-project'));
 addpath(genpath('C:\_research_projects\Research-scripts'))
@@ -14,20 +26,30 @@ clinical_data(clinical_data.Patient_Deidentified_ID == 12261, :) = [];
 clinical_data.Patient_Deidentified_ID = strcat(num2str(clinical_data.Patient_Deidentified_ID), '.svs');
 clinical_data.Patient_Deidentified_ID = cellstr(clinical_data.Patient_Deidentified_ID);
 clinical_data.Properties.VariableNames(4) = "Slide name";
+%% BMI PLCO and OM3
+pth = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis';
+OM = readtable(fullfile(pth,"Omental Mets/Adipocyte_ft_DLVpost_Omental_mets_clinical.xlsx"), 'VariableNamingRule','preserve');
+PLCO = readtable(fullfile(pth,"PLCO/Adipocyte_ft_DLVpost_PLCO_clinical.xlsx"), 'VariableNamingRule','preserve');
 %%
-data = data_DLVpost;
-name = 'DLVpost';
+KM_save = fullfile('C:\_research_projects\Adipocyte model project\Adipocyte analysis\Omental Mets\Survival analysis_v2\KM_median\');
+KM_save2 = fullfile('C:\_research_projects\Adipocyte model project\Adipocyte analysis\Omental Mets\Survival analysis_v2\KM_best_quartile\');
+% KM_save = fullfile('C:\_research_projects\Adipocyte model project\Adipocyte analysis\PLCO\Survival analysis\KM_median\');
+% KM_save2 = fullfile('C:\_research_projects\Adipocyte model project\Adipocyte analysis\PLCO\Survival analysis\KM_best_quartile\');
+filename_excel = fullfile(KM_save, ['Surv_KM_median_BMI.xlsx']);
+filename_excel2 = fullfile(KM_save2, ['Surv_KM_best_qt_BMI.xlsx']);
+cut_point = 'Median';
+%%
+data = OM;
 
-KM_save = fullfile('C:\_research_projects\Adipocyte model project\Adipocyte analysis\Omental Mets\Survival analysis\KM_median\', name);
-KM_save2 = fullfile('C:\_research_projects\Adipocyte model project\Adipocyte analysis\Omental Mets\Survival analysis\KM_best_quartile\', name);
-filename_excel = fullfile(KM_save, ['Surv_KM_median_' name '.xlsx']);
-filename_excel2 = fullfile(KM_save2, ['Surv_KM_best_qt_' name '.xlsx']);
+% preds = {'bmi_curr'};
+preds = {'BMI'};
+time = 'Overall.Survival..Time.to.Death.or.to.last.survival.status.if.a';
+event = 'Patient.status..1.dead..0.alive.';
+% time =  'Overall_Survival_calculated';
+% event = 'is_dead';
 
-
-mkdir(KM_save);
-mkdir(KM_save2);
-cut_point = 'Median'; % 'Median' 'Quartile', QuartileAll or 'Tertile' %quartile = 25, 75, quartileAll = 25, 50, 75, tertile = [100/3 100/1.5]
-T = innerjoin(clinical_data, data, "Keys","Slide name");
+kmplotter_workflow(data, preds, time, event, filename_excel, KM_save, cut_point)
+kmplotter_workflow_best_quartile(data, preds, time, event, filename_excel2, KM_save2)
 %%
 data_M2Fraw = readtable(fullfile(pth, 'Adipocyte_ft_M2Fraw_Omental_mets_clinical.xlsx'), 'VariableNamingRule','preserve'); 
 data_M2Fpost = readtable(fullfile(pth, 'Adipocyte_ft_M2Fpost_Omental_mets_clinical.xlsx'), 'VariableNamingRule','preserve'); 
