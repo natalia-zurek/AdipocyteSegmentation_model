@@ -1,10 +1,10 @@
-main_pth = "C:\_research_projects\Adipocyte model project\Mask2Former_v1\training dataset\model Ov1 MTC 1024\";
+main_pth = "C:\_research_projects\Adipocyte model project\Original data\annotations\annotations OM2";
 mask_pth = fullfile(main_pth, "annotations");
 % image_path = fullfile(main_pth, "images/images TCGA/");
-output_path = 'C:\Users\wylezoln\Box\Ovarian Cancer Computational Pathology\Adipocyte analysis\manuscript\MANUSCRIPT ADIPO\Natalia working folder\_tables';
+output_path = 'C:\_research_projects\Adipocyte model project\Original data';
 % mkdir(output_path);
-dataset_name = 'OM1';
-files = dir(fullfile(mask_pth, '*.mat'));
+dataset_name = 'OM2';
+files = dir(fullfile(main_pth, '*.mat'));
 
 T = table();
 for i = 1:size(files, 1)

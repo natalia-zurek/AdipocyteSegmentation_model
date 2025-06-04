@@ -1,9 +1,7 @@
 %% non nested
-main_pth = 'D:\QuPath projects\fat annotations\Project FAT Omental Mets strict ROIs\M2F raw';
-folder_path = fullfile(main_pth, '16016\mat');
-
-img_folder = 'D:\QuPath projects\fat annotations\Project FAT Omental Mets strict ROIs\tiles fat wsi 1024 0.9\16016';
-output_path = 'D:\QuPath projects\fat annotations\Project FAT Omental Mets strict ROIs\M2F post';
+folder_path = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former raw\images OM2 normal infer\mat';
+img_folder = 'C:\_research_projects\Adipocyte model project\Original data\images\images OM2 1024';
+output_path = 'C:\_research_projects\Adipocyte model project\Adipocyte analysis\Test datasets\Mask2Former postprocessed\OM2 1024';
 mkdir(output_path);
 post_proc = 1;
 files = dir(fullfile(folder_path, '*.mat'));
@@ -28,7 +26,7 @@ for i = 1:size(files, 1)
         I = imread(fullfile(img_folder, [name '.tif']));
         ov = labeloverlay(I, inst_map, "Transparency", 0.6);
 
-        save(fullfile(output_dir, file.name), 'inst_map', 'inst_ids', 'inst_scores', 'inst_types', 'inst_types', 'post_proc');
+        save(fullfile(output_dir, file.name), 'inst_map', 'inst_ids', 'inst_scores', 'inst_types', 'post_proc');
         imwrite(uint8(inst_map), fullfile(output_dir2, [name '.tif']));
         imwrite(ov, fullfile(output_dir3, [name '.png']));
 end

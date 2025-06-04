@@ -1,9 +1,9 @@
 % Model to mask
 
-folder_path = 'C:\_research_projects\Adipocyte model project\Original data\images\images blood vessels\images blood vessels';
-output_path = 'C:\_research_projects\Adipocyte model project\Original data\images\images blood vessels\geojson';
+folder_path = 'C:\_research_projects\Adipocyte model project\Original data\masks\masks new';
+output_path = 'C:\_research_projects\Adipocyte model project\Original data\masks\masks new\geojson';
 mkdir(output_path);
-files = dir(fullfile(folder_path, '*.tif'));
+files = dir(fullfile(folder_path, '*.png'));
 
 for i = 1:size(files, 1)
     file_path = fullfile(files(i).folder, files(i).name);

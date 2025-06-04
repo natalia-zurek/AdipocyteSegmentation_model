@@ -122,19 +122,3 @@ for i = 1:size(files, 1)
     end
 end
 
-
-% for i = 3%:size(files, 1)
-%     file_path = fullfile(files(i).folder, files(i).name);
-%     [~,name,~] = fileparts(file_path);
-%     img = imread(file_path);
-%     figure(2)
-%     for j = 1:size(color_num, 2)
-%         img_aug = colorTransform(img, 'CS', j, 'none');
-%         %[img_aug, mask_aug] = flip_rotation_blur_augmentation(img_aug, mask_aug, 'gblur');
-%         subplot(3,3, j)
-% 
-%         imshow(img_aug)
-%     end
-% 
-% 
-% end

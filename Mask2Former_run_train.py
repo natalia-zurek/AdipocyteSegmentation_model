@@ -148,7 +148,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=initial_lr)
 
     # Learning rate scheduler
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)  # Decays LR by a factor of 0.5 every 15 epochs
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=80, gamma=0.5)  # Decays LR by a factor of 0.5 every 15 epochs
     
     # Initialize DataFrame to store metrics
     metrics_path = os.path.join(save_checkpoints_folder, 'training_metrics.csv')

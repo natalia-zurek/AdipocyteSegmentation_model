@@ -133,7 +133,6 @@ inst_map(inst_map == 0) = inst_ids(end)+1;
 inst_map(inst_map == -1) = 0;
 inst_map(inst_map > 0) = 1;
 out = categorical(inst_map,labelIDs,classNames);
-
 end
 
 end
