@@ -8,11 +8,11 @@ This repository is dedicated to the research paper [Morphometric analysis of adi
   - folder containing code for model evaluation
 
 ## Models' weights 
-**M2F** model weights can be downloaded [here](link).
-**DLV** model weights can be downloaded [here](link).
+**M2F** model weights can be downloaded [here](link). (not yet available)
+**DLV** model weights can be downloaded [here](link). (not yet available)
 
 ## Datasets
-TCGA, GETX, OM1&2 and GUT images and their corresponding masks (binary and instance) can be found under this [link](link).
+TCGA, GETX, OM1&2 and GUT images and their corresponding masks (binary and instance) can be found under this [link](link). (not yet available)
 
 ## Installation & Prerequisities
 ```python
